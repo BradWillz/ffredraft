@@ -12,7 +12,7 @@ async function sleeperGet(path: string) {
   return res.json();
 }
 
-// --- Base helpers ---
+// ---------- Core league helpers ----------
 
 export async function getLeague(leagueId: string) {
   return sleeperGet(`/league/${leagueId}`);
@@ -24,6 +24,10 @@ export async function getLeagueRosters(leagueId: string) {
 
 export async function getLeagueUsers(leagueId: string) {
   return sleeperGet(`/league/${leagueId}/users`);
+}
+
+export async function getLeagueMatchups(leagueId: string, week: number) {
+  return sleeperGet(`/league/${leagueId}/matchups/${week}`);
 }
 
 // Winners bracket = playoff tree
@@ -47,7 +51,7 @@ export async function getLeagueHistory(startLeagueId: string) {
   return leagues;
 }
 
-// Get the *playoff champion* for a league
+// Playoff champion name (what we already wired up)
 export async function getLeagueChampionName(leagueId: string) {
   const [bracket, rosters, users] = await Promise.all([
     getWinnersBracket(leagueId),
@@ -59,54 +63,63 @@ export async function getLeagueChampionName(leagueId: string) {
   const rostersArr = (rosters as any[]) ?? [];
   const usersArr = (users as any[]) ?? [];
 
-  // Map user_id -> user
-  const usersById = new Map(
-    usersArr.map((u: any) => [u.user_id, u])
-  );
+  const usersById = new Map(usersArr.map((u: any) => [u.user_id, u]));
 
-  // Find the "championship" matchup:
-  // Prefer the one with placement p === 1
   let finals = bracketArr.filter((b: any) => b.p === 1);
 
-  // If no p === 1, fall back to the highest round number
   if (finals.length === 0 && bracketArr.length > 0) {
-    const maxRound = Math.max(
-      ...bracketArr.map((b: any) => b.r ?? 0)
-    );
+    const maxRound = Math.max(...bracketArr.map((b: any) => b.r ?? 0));
     finals = bracketArr.filter((b: any) => b.r === maxRound);
   }
 
   const finalMatch = finals[0];
-  if (!finalMatch) {
-    return "Unknown";
-  }
+  if (!finalMatch) return "Unknown";
 
-  // w = winning roster_id in the final
   const winnerRosterId = finalMatch.w ?? finalMatch.t1 ?? null;
-  if (!winnerRosterId) {
-    return "Unknown";
-  }
+  if (!winnerRosterId) return "Unknown";
 
   const winningRoster = rostersArr.find(
     (r: any) => r.roster_id === winnerRosterId
   );
-
-  if (!winningRoster) {
-    return "Unknown";
-  }
+  if (!winningRoster) return "Unknown";
 
   const ownerId = winningRoster.owner_id;
-  if (!ownerId) {
-    return `Team ${winningRoster.roster_id}`;
-  }
+  if (!ownerId) return `Team ${winningRoster.roster_id}`;
 
   const user = usersById.get(ownerId);
 
-  // Prefer team_name from metadata if set, else display_name, else fallback
   const teamName =
     user?.metadata?.team_name ||
     user?.display_name ||
     `Team ${winningRoster.roster_id}`;
 
   return teamName;
+}
+
+// ---------- Player lookup (for player high-scores page) ----------
+
+// /players/nfl is ~5MB, so we cache it in-memory
+let playersCache: any | null = null;
+
+export async function getAllPlayers() {
+  if (!playersCache) {
+    playersCache = await sleeperGet(`/players/nfl`);
+  }
+  return playersCache;
+}
+
+export async function getPlayerName(playerId: string): Promise<string> {
+  const players = await getAllPlayers();
+  const player = players[playerId];
+
+  if (!player) return playerId;
+
+  return (
+    player.full_name ||
+    (player.first_name && player.last_name
+      ? `${player.first_name} ${player.last_name}`
+      : player.first_name ||
+        player.last_name ||
+        playerId)
+  );
 }
