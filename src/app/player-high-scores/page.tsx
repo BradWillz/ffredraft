@@ -8,6 +8,7 @@ import {
   getLeagueUsers,
   getAllPlayers,
 } from "@/lib/sleeper";
+import PlayerAvatar from "@/components/PlayerAvatar";
 
 type PlayerHigh = {
   playerId: string;
@@ -38,11 +39,9 @@ export default async function PlayerHighScoresPage() {
 
     for (const roster of rosters as any[]) {
       const user = usersById.get(roster.owner_id);
-      const teamName =
-        user?.metadata?.team_name ||
-        user?.display_name ||
-        `Team ${roster.roster_id}`;
-      rosterNameById.set(roster.roster_id, teamName);
+      const username = user?.username || user?.display_name || user?.user_id || `Team ${roster.roster_id}`;
+      const formattedUsername = username.startsWith('@') ? username : `@${username}`;
+      rosterNameById.set(roster.roster_id, formattedUsername);
     }
 
     for (let week = 1; week <= 18; week++) {
@@ -96,49 +95,59 @@ export default async function PlayerHighScoresPage() {
   const top = entries.slice(0, 20); // top 20 all-time
 
   return (
-    <main style={{ padding: "2rem" }}>
-      <h1>💥 All-Time Player High Scores (Starters)</h1>
-      <p style={{ marginBottom: "1rem" }}>
-        Biggest single-week starter performances in your league, using league
-        scoring (from matchups).
-      </p>
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-12 text-center">
+          <h1 className="text-5xl font-bold text-white mb-4">
+            💥 All-Time Player High Scores
+          </h1>
+          <p className="text-slate-400 text-lg">
+            Biggest single-week starter performances in your league
+          </p>
+        </div>
 
-      <table style={{ borderCollapse: "collapse", minWidth: "70%" }}>
-        <thead>
-          <tr>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>#</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Player</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Team</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Season</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Week</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Points</th>
-          </tr>
-        </thead>
-        <tbody>
-          {top.map((row, index) => (
-            <tr key={`${row.season}-${row.week}-${row.teamName}-${row.playerId}-${index}`}>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {index + 1}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {row.playerName}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {row.teamName}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {row.season}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {row.week}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {row.points.toFixed(2)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        {/* Table */}
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-900/50">
+                <tr className="border-b border-slate-700">
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">#</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Player</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Team</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Season</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Week</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Points</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/50">
+                {top.map((row, index) => (
+                  <tr key={`${row.season}-${row.week}-${row.teamName}-${row.playerId}-${index}`} className="hover:bg-slate-700/30 transition-colors duration-150">
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 font-bold text-sm">
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <PlayerAvatar playerId={row.playerId} playerName={row.playerName} />
+                        <span className="text-slate-200 font-bold">{row.playerName}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-slate-300">{row.teamName}</td>
+                    <td className="px-6 py-4 text-center text-slate-300">{row.season}</td>
+                    <td className="px-6 py-4 text-center text-slate-300">{row.week}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-yellow-400 font-bold text-lg">{row.points.toFixed(2)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

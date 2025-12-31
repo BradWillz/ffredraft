@@ -176,45 +176,79 @@ export default async function HeadToHeadPage() {
   }
 
   return (
-    <main style={{ padding: "2rem" }}>
-      <h1>🤝 Head-to-Head Records</h1>
-      <p style={{ marginBottom: "1rem" }}>
-        Win / loss / tie records across all seasons in this league tree.
-      </p>
-
-      {Array.from(groupedByTeam.entries()).map(([teamName, teamRows]) => (
-        <div key={teamName} style={{ marginBottom: "3rem" }}>
-          <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem" }}>{teamName}</h2>
-          <table style={{ borderCollapse: "collapse", minWidth: "60%" }}>
-            <thead>
-              <tr>
-                <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc", textAlign: "left" }}>Opponent</th>
-                <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc", textAlign: "center" }}>W</th>
-                <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc", textAlign: "center" }}>L</th>
-                <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc", textAlign: "center" }}>T</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teamRows.map((row) => (
-                <tr key={`${row.teamId}-${row.opponentId}`}>
-                  <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                    {row.opponentName}
-                  </td>
-                  <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee", textAlign: "center" }}>
-                    {row.wins}
-                  </td>
-                  <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee", textAlign: "center" }}>
-                    {row.losses}
-                  </td>
-                  <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee", textAlign: "center" }}>
-                    {row.ties}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-12 text-center">
+          <h1 className="text-5xl font-bold text-white mb-4">
+            🤝 Head-to-Head Records
+          </h1>
+          <p className="text-slate-400 text-lg">
+            Win / loss / tie records across all seasons in this league tree
+          </p>
         </div>
-      ))}
+
+        {/* User Sections */}
+        <div className="space-y-8">
+          {Array.from(groupedByTeam.entries()).map(([teamName, teamRows]) => (
+            <div key={teamName} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+              {/* Team Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4">
+                <h2 className="text-2xl font-bold text-white">{teamName}</h2>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-900/50">
+                    <tr className="border-b border-slate-700">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        Opponent
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        W
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        L
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        T
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {teamRows.map((row) => (
+                      <tr 
+                        key={`${row.teamId}-${row.opponentId}`}
+                        className="hover:bg-slate-700/30 transition-colors duration-150"
+                      >
+                        <td className="px-6 py-4 text-slate-200 font-medium">
+                          {row.opponentName}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20 text-green-400 font-bold">
+                            {row.wins}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-500/20 text-red-400 font-bold">
+                            {row.losses}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-500/20 text-slate-400 font-bold">
+                            {row.ties}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </main>
   );
 }

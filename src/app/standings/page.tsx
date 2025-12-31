@@ -23,6 +23,9 @@ export default async function StandingsPage() {
     .map((r: any) => {
       const user = usersById.get(r.owner_id);
       const settings = r.settings || {};
+      
+      const username = user?.username || user?.display_name || user?.user_id || `Team ${r.roster_id}`;
+      const formattedUsername = username.startsWith('@') ? username : `@${username}`;
 
       const wins = settings.wins ?? 0;
       const losses = settings.losses ?? 0;
@@ -33,7 +36,7 @@ export default async function StandingsPage() {
 
       return {
         rosterId: r.roster_id,
-        name: user?.display_name ?? `Team ${r.roster_id}`,
+        name: formattedUsername,
         wins,
         losses,
         ties,
@@ -46,44 +49,59 @@ export default async function StandingsPage() {
     });
 
   return (
-    <main style={{ padding: "2rem" }}>
-      <h1>
-        {league.name} – Standings ({league.season})
-      </h1>
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-12 text-center">
+          <h1 className="text-5xl font-bold text-white mb-4">
+            🏈 {league.name}
+          </h1>
+          <p className="text-slate-400 text-lg">
+            {league.season} Season Standings
+          </p>
+        </div>
 
-      <table style={{ marginTop: "1rem", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>#</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Team</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Record</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Points For</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teams.map((team, index) => (
-            <tr key={team.rosterId}>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {index + 1}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {team.name}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {team.wins}-{team.losses}
-                {team.ties ? `-${team.ties}` : ""}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {team.pointsFor.toFixed(2)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        {/* Table */}
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-900/50">
+                <tr className="border-b border-slate-700">
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">#</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Team</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Record</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Points For</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/50">
+                {teams.map((team, index) => (
+                  <tr key={team.rosterId} className="hover:bg-slate-700/30 transition-colors duration-150">
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 font-bold text-sm">
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-200 font-medium">{team.name}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-slate-200 font-semibold">
+                        <span className="text-green-400">{team.wins}</span>-<span className="text-red-400">{team.losses}</span>
+                        {team.ties ? <span className="text-slate-400">-{team.ties}</span> : ""}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-yellow-400 font-bold">{team.pointsFor.toFixed(2)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-      <p style={{ marginTop: "1rem", fontSize: "0.85rem", opacity: 0.7 }}>
-        Data pulled live from Sleeper (league ID {SLEEPER_LEAGUE_ID})
-      </p>
+        <p className="mt-6 text-center text-slate-500 text-sm">
+          Data pulled live from Sleeper (league ID {SLEEPER_LEAGUE_ID})
+        </p>
+      </div>
     </main>
   );
 }

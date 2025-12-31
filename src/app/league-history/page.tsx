@@ -45,10 +45,8 @@ export default async function LeagueHistoryPage() {
 
       const existing = totals.get(roster.owner_id);
 
-      const teamName =
-        user?.metadata?.team_name ||
-        user?.display_name ||
-        `Team ${roster.roster_id}`;
+      const username = user?.username || user?.display_name || user?.user_id || `Team ${roster.roster_id}`;
+      const formattedUsername = username.startsWith('@') ? username : `@${username}`;
 
       if (existing) {
         existing.pf += pf;
@@ -57,7 +55,7 @@ export default async function LeagueHistoryPage() {
       } else {
         totals.set(roster.owner_id, {
           userId: roster.owner_id,
-          name: teamName,
+          name: formattedUsername,
           pf,
           pa,
           seasons: new Set([league.season]),
@@ -69,44 +67,58 @@ export default async function LeagueHistoryPage() {
   const rows = Array.from(totals.values()).sort((a, b) => b.pf - a.pf);
 
   return (
-    <main style={{ padding: "2rem" }}>
-      <h1>📚 League History – Points For & Against</h1>
-      <p style={{ marginBottom: "1rem" }}>
-        Aggregated across all Sleeper seasons in this league tree.
-      </p>
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-12 text-center">
+          <h1 className="text-5xl font-bold text-white mb-4">
+            📚 League History
+          </h1>
+          <p className="text-slate-400 text-lg">
+            Aggregated points for & against across all Sleeper seasons
+          </p>
+        </div>
 
-      <table style={{ borderCollapse: "collapse", minWidth: "60%" }}>
-        <thead>
-          <tr>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>#</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Team</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>Seasons</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>PF (All-time)</th>
-            <th style={{ padding: "0.5rem", borderBottom: "1px solid #ccc" }}>PA (All-time)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={row.userId}>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {index + 1}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {row.name}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {row.seasons.size}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {formatNumber(row.pf)}
-              </td>
-              <td style={{ padding: "0.5rem", borderBottom: "1px solid #eee" }}>
-                {formatNumber(row.pa)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        {/* Table */}
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-900/50">
+                <tr className="border-b border-slate-700">
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">#</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Team</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Seasons</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">PF (All-time)</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">PA (All-time)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/50">
+                {rows.map((row, index) => (
+                  <tr key={row.userId} className="hover:bg-slate-700/30 transition-colors duration-150">
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 font-bold text-sm">
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-200 font-medium">{row.name}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 font-semibold">
+                        {row.seasons.size}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-green-400 font-bold">{formatNumber(row.pf)}</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-red-400 font-bold">{formatNumber(row.pa)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

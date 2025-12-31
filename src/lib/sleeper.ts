@@ -88,12 +88,10 @@ export async function getLeagueChampionName(leagueId: string) {
 
   const user = usersById.get(ownerId);
 
-  const teamName =
-    user?.metadata?.team_name ||
-    user?.display_name ||
-    `Team ${winningRoster.roster_id}`;
+  const username = user?.username || user?.display_name || user?.user_id || `Team ${winningRoster.roster_id}`;
+  const formattedUsername = username.startsWith('@') ? username : `@${username}`;
 
-  return teamName;
+  return formattedUsername;
 }
 
 // ---------- Player lookup (for player high-scores page) ----------
