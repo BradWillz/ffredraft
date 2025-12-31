@@ -7,6 +7,7 @@ import {
   getLeagueRosters,
   getLeagueUsers,
 } from "@/lib/sleeper";
+import UserAvatar from "@/components/UserAvatar";
 
 type RecordEntry = {
   wins: number;
@@ -194,7 +195,10 @@ export default async function HeadToHeadPage() {
             <div key={teamName} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
               {/* Team Header */}
               <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4">
-                <h2 className="text-2xl font-bold text-white">{teamName}</h2>
+                <div className="flex items-center gap-3">
+                  <UserAvatar username={teamName} />
+                  <h2 className="text-2xl font-bold text-white">{teamName}</h2>
+                </div>
               </div>
 
               {/* Table */}
