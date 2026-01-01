@@ -61,7 +61,7 @@ export default async function HistoryPage() {
                       <p className="text-slate-400 text-xs sm:text-base">Season Champion</p>
                     </div>
                   </div>
-                  <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 px-4 sm:px-6 py-2 sm:py-3 rounded-lg border border-yellow-500/30">
+                  <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 px-4 sm:px-6 py-2 sm:py-3 rounded-lg border border-yellow-500/30 min-w-[120px] sm:min-w-[140px] text-center">
                     <span className="text-sm sm:text-lg font-bold text-yellow-400">👑 {item.championName}</span>
                   </div>
                 </div>
