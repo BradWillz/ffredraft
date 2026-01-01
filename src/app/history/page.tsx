@@ -4,20 +4,63 @@ import { SLEEPER_LEAGUE_ID } from "@/lib/config";
 import {
   getLeagueHistory,
   getLeagueChampionName,
+  getLeagueRosters,
+  getLeagueUsers,
 } from "@/lib/sleeper";
+import { getDisplayName, normalizeUsername } from "@/lib/normalize-username";
 import HomeButton from "@/components/HomeButton";
+import ChampionshipTabs from "./ChampionshipTabs";
 
 export default async function HistoryPage() {
   const leagues: any[] = await getLeagueHistory(SLEEPER_LEAGUE_ID);
 
   const history = await Promise.all(
     leagues.map(async (league: any) => {
-      const championName = await getLeagueChampionName(league.league_id);
+      const [championName, rosters, users] = await Promise.all([
+        getLeagueChampionName(league.league_id),
+        getLeagueRosters(league.league_id),
+        getLeagueUsers(league.league_id),
+      ]);
+
+      // Find last place finisher
+      const usersById = new Map(
+        (users as any[]).map((u: any) => [u.user_id, u])
+      );
+
+      const teams = (rosters as any[])
+        .filter((r: any) => !!r.owner_id)
+        .map((r: any) => {
+          const user = usersById.get(r.owner_id);
+          const settings = r.settings || {};
+          
+          const username = user?.username || user?.display_name || user?.user_id || `Team ${r.roster_id}`;
+          const displayName = getDisplayName(username);
+
+          const wins = settings.wins ?? 0;
+          const losses = settings.losses ?? 0;
+          const pointsFor =
+            (settings.fpts ?? 0) +
+            ((settings.fpts_decimal ?? 0) / 100);
+
+          return {
+            name: displayName,
+            wins,
+            losses,
+            pointsFor,
+          };
+        })
+        .sort((a, b) => {
+          if (a.wins !== b.wins) return a.wins - b.wins;
+          return a.pointsFor - b.pointsFor;
+        });
+
+      const lastPlaceName = teams[0]?.name || "Unknown";
 
       return {
         season: league.season,
         leagueName: league.name,
         championName,
+        lastPlaceName,
       };
     })
   );
@@ -39,34 +82,12 @@ export default async function HistoryPage() {
             🏆 League History
           </h1>
           <p className="text-slate-400 text-sm sm:text-base md:text-lg">
-            Champions based on Sleeper playoff winners (not regular season record)
+            Champions and last place finishers
           </p>
         </div>
 
-        {/* History List */}
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden p-4 sm:p-6 md:p-8">
-          <div className="space-y-3 sm:space-y-4">
-            {history.map((item) => (
-              <div 
-                key={item.season} 
-                className="bg-slate-900/50 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-slate-700 hover:border-blue-500/50 transition-all duration-200"
-              >
-                <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-                  <span className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-yellow-500/20 text-yellow-400 font-bold text-lg sm:text-xl">
-                    {item.season}
-                  </span>
-                  <div className="flex-1 min-w-[200px]">
-                    <h3 className="text-base sm:text-xl font-bold text-white">{item.leagueName}</h3>
-                    <p className="text-slate-400 text-xs sm:text-base">Season Champion</p>
-                  </div>
-                  <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 px-4 sm:px-6 py-2 sm:py-3 rounded-lg border border-yellow-500/30 min-w-[120px] sm:min-w-[140px] text-center">
-                    <span className="text-sm sm:text-lg font-bold text-yellow-400">👑 {item.championName}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Championship Tabs */}
+        <ChampionshipTabs history={history} />
       </div>
     </main>
   );
