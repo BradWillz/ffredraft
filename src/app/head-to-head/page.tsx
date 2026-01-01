@@ -7,7 +7,8 @@ import {
   getLeagueRosters,
   getLeagueUsers,
 } from "@/lib/sleeper";
-import UserAvatar from "@/components/UserAvatar";
+import UserTabs from "@/components/UserTabs";
+import HomeButton from "@/components/HomeButton";
 
 type RecordEntry = {
   wins: number;
@@ -179,6 +180,11 @@ export default async function HeadToHeadPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Home Button */}
+        <div className="mb-6">
+          <HomeButton />
+        </div>
+        
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-5xl font-bold text-white mb-4">
@@ -189,69 +195,8 @@ export default async function HeadToHeadPage() {
           </p>
         </div>
 
-        {/* User Sections */}
-        <div className="space-y-8">
-          {Array.from(groupedByTeam.entries()).map(([teamName, teamRows]) => (
-            <div key={teamName} className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
-              {/* Team Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <UserAvatar username={teamName} />
-                  <h2 className="text-2xl font-bold text-white">{teamName}</h2>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-900/50">
-                    <tr className="border-b border-slate-700">
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        Opponent
-                      </th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        W
-                      </th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        L
-                      </th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        T
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-700/50">
-                    {teamRows.map((row) => (
-                      <tr 
-                        key={`${row.teamId}-${row.opponentId}`}
-                        className="hover:bg-slate-700/30 transition-colors duration-150"
-                      >
-                        <td className="px-6 py-4 text-slate-200 font-medium">
-                          {row.opponentName}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20 text-green-400 font-bold">
-                            {row.wins}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-500/20 text-red-400 font-bold">
-                            {row.losses}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-500/20 text-slate-400 font-bold">
-                            {row.ties}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* User Tabs */}
+        <UserTabs groupedByTeam={groupedByTeam} />
       </div>
     </main>
   );

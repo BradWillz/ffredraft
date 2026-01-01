@@ -5,6 +5,7 @@ import {
   getLeagueHistory,
   getLeagueChampionName,
 } from "@/lib/sleeper";
+import HomeButton from "@/components/HomeButton";
 
 export default async function HistoryPage() {
   const leagues: any[] = await getLeagueHistory(SLEEPER_LEAGUE_ID);
@@ -27,6 +28,11 @@ export default async function HistoryPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Home Button */}
+        <div className="mb-6">
+          <HomeButton />
+        </div>
+        
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-5xl font-bold text-white mb-4">
