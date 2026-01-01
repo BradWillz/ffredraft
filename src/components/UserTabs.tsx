@@ -6,8 +6,10 @@ import UserAvatar from "./UserAvatar";
 type HeadToHeadRow = {
   teamId: string;
   teamName: string;
+  teamUsername: string;
   opponentId: string;
   opponentName: string;
+  opponentUsername: string;
   wins: number;
   losses: number;
   ties: number;
@@ -22,6 +24,7 @@ export default function UserTabs({ groupedByTeam }: UserTabsProps) {
   const [selectedTeam, setSelectedTeam] = useState(teams[0]?.[0] || "");
 
   const currentTeamData = groupedByTeam.get(selectedTeam);
+  const selectedTeamUsername = currentTeamData?.[0]?.teamUsername || selectedTeam;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -50,7 +53,7 @@ export default function UserTabs({ groupedByTeam }: UserTabsProps) {
           {/* Team Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center gap-2 sm:gap-3">
-              <UserAvatar username={selectedTeam} />
+              <UserAvatar username={selectedTeamUsername} />
               <h2 className="text-xl sm:text-2xl font-bold text-white">{selectedTeam}</h2>
             </div>
           </div>

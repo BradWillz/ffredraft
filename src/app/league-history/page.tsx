@@ -1,6 +1,7 @@
 // app/league-history/page.tsx
 
 import { SLEEPER_LEAGUE_ID } from "@/lib/config";
+import { normalizeUsername, getDisplayName } from "@/lib/normalize-username";
 import { getLeagueHistory, getLeagueRosters, getLeagueUsers } from "@/lib/sleeper";
 import SeasonTabs from "@/components/SeasonTabs";
 import HomeButton from "@/components/HomeButton";
@@ -52,11 +53,11 @@ export default async function LeagueHistoryPage() {
         ((settings.fpts_against_decimal ?? 0) / 100);
 
       const username = user?.username || user?.display_name || user?.user_id || `Team ${roster.roster_id}`;
-      const formattedUsername = username.startsWith('@') ? username : `@${username}`;
+      const displayName = getDisplayName(username);
 
       seasonTeams.set(roster.owner_id, {
         userId: roster.owner_id,
-        name: formattedUsername,
+        name: displayName,
         pf,
         pa,
       });

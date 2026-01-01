@@ -8,6 +8,7 @@ import {
 } from "@/lib/sleeper";
 import HomeButton from "@/components/HomeButton";
 import StandingsTabs from "./StandingsTabs";
+import { normalizeUsername, getDisplayName, getRosterUsername } from "@/lib/normalize-username";
 
 export default async function StandingsPage() {
   const leagues = await getLeagueHistory(SLEEPER_LEAGUE_ID);
@@ -25,13 +26,16 @@ export default async function StandingsPage() {
       );
 
       const teams = (rosters as any[])
-        .filter((r: any) => !!r.owner_id)
         .map((r: any) => {
           const user = usersById.get(r.owner_id);
           const settings = r.settings || {};
           
-          const username = user?.username || user?.display_name || user?.user_id || `Team ${r.roster_id}`;
-          const formattedUsername = username.startsWith('@') ? username : `@${username}`;
+          // Check if we have a manual mapping for this roster
+          const mappedUsername = getRosterUsername(league.league_id, r.roster_id);
+          const username = mappedUsername || user?.username || user?.display_name || user?.user_id || r.owner_id || `Team ${r.roster_id}`;
+          const normalized = normalizeUsername(username);
+          const formattedUsername = normalized.startsWith('@') ? normalized : `@${normalized}`;
+          const displayName = getDisplayName(username);
 
           const wins = settings.wins ?? 0;
           const losses = settings.losses ?? 0;
@@ -45,7 +49,9 @@ export default async function StandingsPage() {
 
           return {
             rosterId: r.roster_id,
-            name: formattedUsername,
+            userId: r.owner_id || `roster_${r.roster_id}`,
+            username: formattedUsername,
+            name: displayName,
             wins,
             losses,
             ties,

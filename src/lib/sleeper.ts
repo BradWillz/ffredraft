@@ -1,5 +1,7 @@
 // lib/sleeper.ts
 
+import { getDisplayName } from "./normalize-username";
+
 const BASE_URL = "https://api.sleeper.app/v1";
 
 async function sleeperGet(path: string) {
@@ -89,9 +91,9 @@ export async function getLeagueChampionName(leagueId: string) {
   const user = usersById.get(ownerId);
 
   const username = user?.username || user?.display_name || user?.user_id || `Team ${winningRoster.roster_id}`;
-  const formattedUsername = username.startsWith('@') ? username : `@${username}`;
+  const displayName = getDisplayName(username);
 
-  return formattedUsername;
+  return displayName;
 }
 
 // ---------- Player lookup (for player high-scores page) ----------

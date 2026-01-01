@@ -1,6 +1,7 @@
 // app/head-to-head/page.tsx
 
 import { SLEEPER_LEAGUE_ID } from "@/lib/config";
+import { normalizeUsername, getDisplayName } from "@/lib/normalize-username";
 import {
   getLeagueHistory,
   getLeagueMatchups,
@@ -19,8 +20,10 @@ type RecordEntry = {
 type HeadToHeadRow = {
   teamId: string;
   teamName: string;
+  teamUsername: string;
   opponentId: string;
   opponentName: string;
+  opponentUsername: string;
   wins: number;
   losses: number;
   ties: number;
@@ -52,6 +55,7 @@ export default async function HeadToHeadPage() {
   // stats[teamId][opponentId] = { wins, losses, ties } from the perspective of teamId
   const stats = new Map<string, Map<string, RecordEntry>>();
   const namesByUserId = new Map<string, string>();
+  const usernamesByUserId = new Map<string, string>();
 
   for (const league of leagues) {
     const [rosters, users] = await Promise.all([
@@ -59,11 +63,14 @@ export default async function HeadToHeadPage() {
       getLeagueUsers(league.league_id),
     ]);
 
-    // Map user_id -> username
+    // Map user_id -> display name and username
     for (const u of users as any[]) {
       const username = u?.username || u?.display_name || u?.user_id;
-      const formattedUsername = username.startsWith('@') ? username : `@${username}`;
-      namesByUserId.set(u.user_id, formattedUsername);
+      const normalized = normalizeUsername(username);
+      const formattedUsername = normalized.startsWith('@') ? normalized : `@${normalized}`;
+      const displayName = getDisplayName(username);
+      namesByUserId.set(u.user_id, displayName);
+      usernamesByUserId.set(u.user_id, formattedUsername);
     }
 
     // Map roster_id -> owner user_id
@@ -145,7 +152,9 @@ export default async function HeadToHeadPage() {
         teamId,
         opponentId: oppId,
         teamName: namesByUserId.get(teamId) ?? `@${teamId}`,
+        teamUsername: usernamesByUserId.get(teamId) ?? `@${teamId}`,
         opponentName: namesByUserId.get(oppId) ?? `@${oppId}`,
+        opponentUsername: usernamesByUserId.get(oppId) ?? `@${oppId}`,
         wins: rec.wins,
         losses: rec.losses,
         ties: rec.ties,

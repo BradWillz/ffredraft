@@ -1,6 +1,7 @@
 // app/player-high-scores/page.tsx
 
 import { SLEEPER_LEAGUE_ID } from "@/lib/config";
+import { getDisplayName } from "@/lib/normalize-username";
 import {
   getLeagueHistory,
   getLeagueMatchups,
@@ -41,8 +42,8 @@ export default async function PlayerHighScoresPage() {
     for (const roster of rosters as any[]) {
       const user = usersById.get(roster.owner_id);
       const username = user?.username || user?.display_name || user?.user_id || `Team ${roster.roster_id}`;
-      const formattedUsername = username.startsWith('@') ? username : `@${username}`;
-      rosterNameById.set(roster.roster_id, formattedUsername);
+      const displayName = getDisplayName(username);
+      rosterNameById.set(roster.roster_id, displayName);
     }
 
     for (let week = 1; week <= 18; week++) {

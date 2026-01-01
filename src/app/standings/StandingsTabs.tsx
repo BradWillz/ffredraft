@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import UserAvatar from "@/components/UserAvatar";
 
 type TeamRow = {
   rosterId: number;
-  name: string;
+  userId: string;
+  username: string;  // Normalized username for avatar lookup
+  name: string;      // Display name (real name)
   wins: number;
   losses: number;
   ties: number;
@@ -142,7 +145,14 @@ export default function StandingsTabs({ seasonsData }: StandingsTabsProps) {
                         {index + 1}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-200 font-medium text-sm sm:text-base">{team.name}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex-shrink-0">
+                          <UserAvatar username={team.username} size="sm" />
+                        </div>
+                        <span className="text-slate-200 font-medium text-sm sm:text-base">{team.name}</span>
+                      </div>
+                    </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                       <span className="text-slate-200 font-semibold text-sm sm:text-base">
                         <span className="text-green-400">{team.wins}</span>-<span className="text-red-400">{team.losses}</span>
