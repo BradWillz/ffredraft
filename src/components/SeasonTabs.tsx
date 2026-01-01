@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import UserAvatar from "./UserAvatar";
 
 type SeasonRow = {
   userId: string;
+  username: string;
   name: string;
   pf: number;
   pa: number;
@@ -75,7 +77,14 @@ export default function SeasonTabs({ seasonsData }: SeasonTabsProps) {
                         {index + 1}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-200 font-medium text-sm sm:text-base">{team.name}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex-shrink-0">
+                          <UserAvatar username={team.username} size="sm" />
+                        </div>
+                        <span className="text-slate-200 font-medium text-sm sm:text-base">{team.name}</span>
+                      </div>
+                    </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                       <span className="text-green-400 font-bold text-sm sm:text-base">{formatNumber(team.pf)}</span>
                     </td>

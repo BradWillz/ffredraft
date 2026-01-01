@@ -51,15 +51,13 @@ export default async function HistoryPage() {
                 key={item.season} 
                 className="bg-slate-900/50 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-slate-700 hover:border-blue-500/50 transition-all duration-200"
               >
-                <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <span className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-yellow-500/20 text-yellow-400 font-bold text-lg sm:text-xl">
-                      {item.season}
-                    </span>
-                    <div>
-                      <h3 className="text-base sm:text-xl font-bold text-white">{item.leagueName}</h3>
-                      <p className="text-slate-400 text-xs sm:text-base">Season Champion</p>
-                    </div>
+                <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                  <span className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-yellow-500/20 text-yellow-400 font-bold text-lg sm:text-xl">
+                    {item.season}
+                  </span>
+                  <div className="flex-1 min-w-[200px]">
+                    <h3 className="text-base sm:text-xl font-bold text-white">{item.leagueName}</h3>
+                    <p className="text-slate-400 text-xs sm:text-base">Season Champion</p>
                   </div>
                   <div className="bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 px-4 sm:px-6 py-2 sm:py-3 rounded-lg border border-yellow-500/30 min-w-[120px] sm:min-w-[140px] text-center">
                     <span className="text-sm sm:text-lg font-bold text-yellow-400">👑 {item.championName}</span>

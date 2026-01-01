@@ -8,6 +8,7 @@ import HomeButton from "@/components/HomeButton";
 
 type SeasonRow = {
   userId: string;
+  username: string;
   name: string;
   pf: number;
   pa: number;
@@ -53,10 +54,13 @@ export default async function LeagueHistoryPage() {
         ((settings.fpts_against_decimal ?? 0) / 100);
 
       const username = user?.username || user?.display_name || user?.user_id || `Team ${roster.roster_id}`;
+      const normalized = normalizeUsername(username);
+      const formattedUsername = normalized.startsWith('@') ? normalized : `@${normalized}`;
       const displayName = getDisplayName(username);
 
       seasonTeams.set(roster.owner_id, {
         userId: roster.owner_id,
+        username: formattedUsername,
         name: displayName,
         pf,
         pa,
