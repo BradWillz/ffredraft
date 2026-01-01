@@ -24,15 +24,15 @@ export default function UserTabs({ groupedByTeam }: UserTabsProps) {
   const currentTeamData = groupedByTeam.get(selectedTeam);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Tabs */}
-      <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+      <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
         <div className="flex flex-wrap">
           {teams.map(([teamName]) => (
             <button
               key={teamName}
               onClick={() => setSelectedTeam(teamName)}
-              className={`flex-1 px-4 py-4 text-base font-bold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`flex-1 min-w-[120px] px-3 sm:px-4 py-3 sm:py-4 text-sm sm:text-base font-bold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-2 ${
                 selectedTeam === teamName
                   ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white"
                   : "text-slate-400 hover:text-white hover:bg-slate-700/30"
@@ -46,12 +46,12 @@ export default function UserTabs({ groupedByTeam }: UserTabsProps) {
 
       {/* Selected Team Data */}
       {currentTeamData && (
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
           {/* Team Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4">
-            <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <UserAvatar username={selectedTeam} />
-              <h2 className="text-2xl font-bold text-white">{selectedTeam}</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">{selectedTeam}</h2>
             </div>
           </div>
 
@@ -60,10 +60,10 @@ export default function UserTabs({ groupedByTeam }: UserTabsProps) {
             <table className="w-full">
               <thead className="bg-slate-900/50">
                 <tr className="border-b border-slate-700">
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Opponent</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">W</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">L</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">T</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Opponent</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">W</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">L</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">T</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
@@ -72,21 +72,21 @@ export default function UserTabs({ groupedByTeam }: UserTabsProps) {
                     key={`${row.teamId}-${row.opponentId}`}
                     className="hover:bg-slate-700/30 transition-colors duration-150"
                   >
-                    <td className="px-6 py-4 text-slate-200 font-medium">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-200 font-medium text-sm sm:text-base">
                       {row.opponentName}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20 text-green-400 font-bold">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500/20 text-green-400 font-bold text-sm sm:text-base">
                         {row.wins}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-500/20 text-red-400 font-bold">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-500/20 text-red-400 font-bold text-sm sm:text-base">
                         {row.losses}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-500/20 text-slate-400 font-bold">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-500/20 text-slate-400 font-bold text-sm sm:text-base">
                         {row.ties}
                       </span>
                     </td>

@@ -4,10 +4,10 @@ export default function HomeButton() {
   return (
     <Link 
       href="/"
-      className="inline-flex items-center gap-2 px-6 py-3 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 hover:border-slate-600 rounded-xl transition-all duration-200 text-slate-300 hover:text-white font-semibold"
+      className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-6 sm:py-3 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 hover:border-slate-600 rounded-lg sm:rounded-xl transition-all duration-200 text-slate-300 hover:text-white font-semibold text-sm sm:text-base"
     >
       <svg 
-        className="w-5 h-5" 
+        className="w-4 h-4 sm:w-5 sm:h-5" 
         fill="none" 
         stroke="currentColor" 
         viewBox="0 0 24 24"

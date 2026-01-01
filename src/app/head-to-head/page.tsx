@@ -178,19 +178,19 @@ export default async function HeadToHeadPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Home Button */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <HomeButton />
         </div>
         
         {/* Header */}
-        <div className="mb-12 text-center">
-          <h1 className="text-5xl font-bold text-white mb-4">
+        <div className="mb-8 sm:mb-12 text-center">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 sm:mb-4">
             🤝 Head-to-Head Records
           </h1>
-          <p className="text-slate-400 text-lg">
+          <p className="text-slate-400 text-sm sm:text-base md:text-lg">
             Win / loss / tie records across all seasons in this league tree
           </p>
         </div>
