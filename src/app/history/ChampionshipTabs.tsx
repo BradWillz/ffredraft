@@ -79,7 +79,7 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                             <div className="absolute inset-0 bg-yellow-400/20 blur-2xl rounded-full scale-150 group-hover:bg-yellow-400/40 transition-all" />
                             
                             {/* Trophy Emoji */}
-                            <div className="relative text-8xl sm:text-9xl md:text-[12rem] lg:text-[14rem] transform group-hover:scale-105 transition-transform duration-300 drop-shadow-2xl z-10">
+                            <div className="relative text-9xl sm:text-[10rem] md:text-[12rem] lg:text-[14rem] transform group-hover:scale-105 transition-transform duration-300 drop-shadow-2xl z-10">
                               🏆
                             </div>
                             
@@ -165,7 +165,7 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                             <div className="absolute inset-0 bg-amber-600/20 blur-2xl rounded-full scale-150 group-hover:bg-amber-600/40 transition-all" />
                             
                             {/* Toilet Emoji */}
-                            <div className="relative text-8xl sm:text-9xl md:text-[12rem] lg:text-[14rem] transform group-hover:scale-105 transition-transform duration-300 drop-shadow-2xl z-10">
+                            <div className="relative text-9xl sm:text-[10rem] md:text-[12rem] lg:text-[14rem] transform group-hover:scale-105 transition-transform duration-300 drop-shadow-2xl z-10">
                               🚽
                             </div>
                             
