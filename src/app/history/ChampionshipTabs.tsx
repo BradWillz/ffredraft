@@ -85,18 +85,18 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                             
                             {/* Plaque Integrated into Trophy Base */}
                             <div className="absolute bottom-[1.5%] sm:bottom-[2.5%] md:bottom-[3.5%] left-1/2 -translate-x-1/2 z-20">
-                              <div className="relative bg-gradient-to-br from-yellow-600 via-yellow-700 to-yellow-800 rounded px-2 py-1 sm:px-3 sm:py-1.5 border border-yellow-500 shadow-lg">
+                              <div className="relative bg-gradient-to-br from-yellow-600 via-yellow-700 to-yellow-800 rounded px-1.5 py-0.5 sm:px-2 sm:py-1 md:px-3 md:py-1.5 border border-yellow-500 shadow-lg">
                                 {/* Plaque Shine */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent rounded pointer-events-none" />
                                 
                                 <div className="relative text-center">
-                                  <div className="text-yellow-950 font-black text-[0.4rem] sm:text-[0.5rem] tracking-tight leading-tight">
+                                  <div className="text-yellow-950 font-black text-[0.35rem] sm:text-[0.4rem] md:text-[0.5rem] tracking-tight leading-tight">
                                     CHAMPION
                                   </div>
-                                  <div className="text-white font-bold text-xs sm:text-sm md:text-base leading-tight">
+                                  <div className="text-white font-bold text-[0.5rem] sm:text-xs md:text-sm leading-tight">
                                     👑 {item.championName}
                                   </div>
-                                  <div className="text-yellow-950 font-semibold text-[0.5rem] sm:text-[0.65rem] md:text-xs border-t border-yellow-800/50 mt-0.5">
+                                  <div className="text-yellow-950 font-semibold text-[0.4rem] sm:text-[0.5rem] md:text-[0.65rem] border-t border-yellow-800/50 mt-0.5">
                                     {item.season}
                                   </div>
                                 </div>
@@ -171,18 +171,18 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                             
                             {/* Plaque Integrated into Toilet Base */}
                             <div className="absolute bottom-[1.5%] sm:bottom-[2.5%] md:bottom-[3.5%] left-1/2 -translate-x-1/2 z-20">
-                              <div className="relative bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 rounded px-2 py-1 sm:px-3 sm:py-1.5 border border-slate-300 shadow-lg">
+                              <div className="relative bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 rounded px-1.5 py-0.5 sm:px-2 sm:py-1 md:px-3 md:py-1.5 border border-slate-300 shadow-lg">
                                 {/* Plaque Shine */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent rounded pointer-events-none" />
                                 
                                 <div className="relative text-center">
-                                  <div className="text-slate-800 font-black text-[0.4rem] sm:text-[0.5rem] tracking-tight leading-tight">
+                                  <div className="text-slate-800 font-black text-[0.35rem] sm:text-[0.4rem] md:text-[0.5rem] tracking-tight leading-tight">
                                     LAST PLACE
                                   </div>
-                                  <div className="text-slate-900 font-bold text-xs sm:text-sm md:text-base leading-tight">
+                                  <div className="text-slate-900 font-bold text-[0.5rem] sm:text-xs md:text-sm leading-tight">
                                     💩 {item.lastPlaceName}
                                   </div>
-                                  <div className="text-slate-800 font-semibold text-[0.5rem] sm:text-[0.65rem] md:text-xs border-t border-slate-600/50 mt-0.5">
+                                  <div className="text-slate-800 font-semibold text-[0.4rem] sm:text-[0.5rem] md:text-[0.65rem] border-t border-slate-600/50 mt-0.5">
                                     {item.season}
                                   </div>
                                 </div>
