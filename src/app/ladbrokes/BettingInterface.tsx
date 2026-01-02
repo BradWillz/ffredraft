@@ -164,7 +164,7 @@ export default function BettingInterface({ matchups, accessCode }: BettingInterf
             value={codeInput}
             onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
             onKeyPress={(e) => e.key === 'Enter' && submitCode()}
-            placeholder="e.g. CUP-2025-X7K9"
+            placeholder="Enter your code..."
             className={`w-full px-4 py-3 bg-slate-800 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent uppercase ${
               codeError 
                 ? 'border-red-500 focus:ring-red-500' 
