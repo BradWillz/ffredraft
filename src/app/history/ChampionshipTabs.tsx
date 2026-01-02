@@ -7,6 +7,8 @@ type HistoryItem = {
   leagueName: string;
   championName: string;
   lastPlaceName: string;
+  championshipLineup?: Array<{ name: string; position: string }> | null;
+  lastPlaceLineup?: Array<{ name: string; position: string }> | null;
 };
 
 interface ChampionshipTabsProps {
@@ -70,7 +72,7 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                         }} />
                         
                         {/* Trophy Display */}
-                        <div className="relative flex items-center justify-center p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
+                        <div className="relative flex items-center justify-center gap-4 sm:gap-6 md:gap-8 p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
                           {/* Trophy with Integrated Plaque */}
                           <div className="relative group">
                             {/* Trophy Glow */}
@@ -101,6 +103,23 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                               </div>
                             </div>
                           </div>
+
+                          {/* Championship Lineup */}
+                          {item.championshipLineup && item.championshipLineup.length > 0 && (
+                            <div className="bg-slate-800/60 backdrop-blur-sm rounded-lg p-3 sm:p-4 border border-slate-700 shadow-xl max-w-xs">
+                              <h4 className="text-yellow-400 font-bold text-sm sm:text-base mb-2 text-center border-b border-yellow-500/30 pb-2">
+                                🏈 Winning Lineup
+                              </h4>
+                              <div className="space-y-1 max-h-[280px] sm:max-h-[340px] overflow-y-auto">
+                                {item.championshipLineup.map((player, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs sm:text-sm py-1 px-2 rounded hover:bg-slate-700/50 transition-colors">
+                                    <span className="text-slate-300 truncate flex-1">{player.name}</span>
+                                    <span className="text-yellow-400 font-semibold ml-2 text-[0.65rem] sm:text-xs">{player.position}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                       
@@ -139,7 +158,7 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                         }} />
                         
                         {/* Toilet Display */}
-                        <div className="relative flex items-center justify-center p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
+                        <div className="relative flex items-center justify-center gap-4 sm:gap-6 md:gap-8 p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
                           {/* Toilet with Integrated Plaque */}
                           <div className="relative group">
                             {/* Toilet Glow */}
@@ -170,6 +189,23 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                               </div>
                             </div>
                           </div>
+
+                          {/* Last Place Lineup */}
+                          {item.lastPlaceLineup && item.lastPlaceLineup.length > 0 && (
+                            <div className="bg-slate-800/60 backdrop-blur-sm rounded-lg p-3 sm:p-4 border border-slate-700 shadow-xl max-w-xs">
+                              <h4 className="text-amber-400 font-bold text-sm sm:text-base mb-2 text-center border-b border-amber-500/30 pb-2">
+                                💩 Losing Lineup
+                              </h4>
+                              <div className="space-y-1 max-h-[280px] sm:max-h-[340px] overflow-y-auto">
+                                {item.lastPlaceLineup.map((player, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs sm:text-sm py-1 px-2 rounded hover:bg-slate-700/50 transition-colors">
+                                    <span className="text-slate-300 truncate flex-1">{player.name}</span>
+                                    <span className="text-amber-400 font-semibold ml-2 text-[0.65rem] sm:text-xs">{player.position}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                       

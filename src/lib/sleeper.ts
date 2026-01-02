@@ -123,3 +123,136 @@ export async function getPlayerName(playerId: string): Promise<string> {
         playerId)
   );
 }
+
+// Get championship game winning lineup
+export async function getChampionshipLineup(leagueId: string) {
+  try {
+    const [bracket, rosters, league] = await Promise.all([
+      getWinnersBracket(leagueId),
+      getLeagueRosters(leagueId),
+      getLeague(leagueId),
+    ]);
+
+    const bracketArr = (bracket as any[]) ?? [];
+    const rostersArr = (rosters as any[]) ?? [];
+
+    // Find championship match
+    let finals = bracketArr.filter((b: any) => b.p === 1);
+    if (finals.length === 0 && bracketArr.length > 0) {
+      const maxRound = Math.max(...bracketArr.map((b: any) => b.r ?? 0));
+      finals = bracketArr.filter((b: any) => b.r === maxRound);
+    }
+
+    const finalMatch = finals[0];
+    if (!finalMatch) return null;
+
+    const winnerRosterId = finalMatch.w ?? finalMatch.t1 ?? null;
+    if (!winnerRosterId) return null;
+
+    const winningRoster = rostersArr.find((r: any) => r.roster_id === winnerRosterId);
+    if (!winningRoster) return null;
+
+    // Get championship week matchup
+    const playoffWeekStart = league.settings?.playoff_week_start ?? 15;
+    const playoffRounds = bracketArr.length > 0 ? Math.max(...bracketArr.map((b: any) => b.r ?? 0)) : 2;
+    const championshipWeek = playoffWeekStart + playoffRounds - 1;
+
+    const matchups = await getLeagueMatchups(leagueId, championshipWeek);
+    const matchupsArr = (matchups as any[]) ?? [];
+    
+    const championshipMatchup = matchupsArr.find(
+      (m: any) => m.roster_id === winnerRosterId
+    );
+
+    if (!championshipMatchup || !championshipMatchup.starters) return null;
+
+    // Get player names for starters
+    const players = await getAllPlayers();
+    const lineup = championshipMatchup.starters
+      .filter((playerId: string) => playerId && playerId !== '0')
+      .map((playerId: string) => {
+        const player = players[playerId];
+        if (!player) return { name: playerId, position: 'FLEX' };
+        
+        return {
+          name: player.full_name || `${player.first_name || ''} ${player.last_name || ''}`.trim() || playerId,
+          position: player.position || 'FLEX'
+        };
+      });
+
+    return lineup;
+  } catch (error) {
+    console.error('Error fetching championship lineup:', error);
+    return null;
+  }
+}
+
+// Get last place team's lineup from final regular season week
+export async function getLastPlaceLineup(leagueId: string) {
+  try {
+    const [rosters, users, league] = await Promise.all([
+      getLeagueRosters(leagueId),
+      getLeagueUsers(leagueId),
+      getLeague(leagueId),
+    ]);
+
+    const rostersArr = (rosters as any[]) ?? [];
+    const usersArr = (users as any[]) ?? [];
+    
+    const usersById = new Map(usersArr.map((u: any) => [u.user_id, u]));
+
+    // Find last place team based on wins/points
+    const teams = rostersArr
+      .filter((r: any) => !!r.owner_id)
+      .map((r: any) => {
+        const settings = r.settings || {};
+        const wins = settings.wins ?? 0;
+        const pointsFor = (settings.fpts ?? 0) + ((settings.fpts_decimal ?? 0) / 100);
+        
+        return {
+          roster_id: r.roster_id,
+          wins,
+          pointsFor,
+        };
+      })
+      .sort((a, b) => {
+        if (a.wins !== b.wins) return a.wins - b.wins;
+        return a.pointsFor - b.pointsFor;
+      });
+
+    const lastPlaceRoster = teams[0];
+    if (!lastPlaceRoster) return null;
+
+    // Get final regular season week
+    const playoffWeekStart = league.settings?.playoff_week_start ?? 15;
+    const finalWeek = playoffWeekStart - 1;
+
+    const matchups = await getLeagueMatchups(leagueId, finalWeek);
+    const matchupsArr = (matchups as any[]) ?? [];
+    
+    const lastPlaceMatchup = matchupsArr.find(
+      (m: any) => m.roster_id === lastPlaceRoster.roster_id
+    );
+
+    if (!lastPlaceMatchup || !lastPlaceMatchup.starters) return null;
+
+    // Get player names for starters
+    const players = await getAllPlayers();
+    const lineup = lastPlaceMatchup.starters
+      .filter((playerId: string) => playerId && playerId !== '0')
+      .map((playerId: string) => {
+        const player = players[playerId];
+        if (!player) return { name: playerId, position: 'FLEX' };
+        
+        return {
+          name: player.full_name || `${player.first_name || ''} ${player.last_name || ''}`.trim() || playerId,
+          position: player.position || 'FLEX'
+        };
+      });
+
+    return lineup;
+  } catch (error) {
+    console.error('Error fetching last place lineup:', error);
+    return null;
+  }
+}

@@ -6,6 +6,8 @@ import {
   getLeagueChampionName,
   getLeagueRosters,
   getLeagueUsers,
+  getChampionshipLineup,
+  getLastPlaceLineup,
 } from "@/lib/sleeper";
 import { getDisplayName, normalizeUsername } from "@/lib/normalize-username";
 import HomeButton from "@/components/HomeButton";
@@ -16,10 +18,12 @@ export default async function HistoryPage() {
 
   const history = await Promise.all(
     leagues.map(async (league: any) => {
-      const [championName, rosters, users] = await Promise.all([
+      const [championName, rosters, users, championshipLineup, lastPlaceLineup] = await Promise.all([
         getLeagueChampionName(league.league_id),
         getLeagueRosters(league.league_id),
         getLeagueUsers(league.league_id),
+        getChampionshipLineup(league.league_id),
+        getLastPlaceLineup(league.league_id),
       ]);
 
       // Find last place finisher
@@ -61,6 +65,8 @@ export default async function HistoryPage() {
         leagueName: league.name,
         championName,
         lastPlaceName,
+        championshipLineup,
+        lastPlaceLineup,
       };
     })
   );
