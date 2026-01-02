@@ -111,20 +111,6 @@ export default function Results({ matchups }: ResultsProps) {
             {bets.length} total bet{bets.length !== 1 ? 's' : ''} placed
           </p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setEditMode(!editMode)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
-          >
-            {editMode ? 'View Mode' : 'Set Results'}
-          </button>
-          <button
-            onClick={clearAllData}
-            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-          >
-            Clear All Data
-          </button>
-        </div>
       </div>
 
       {/* Leaderboard */}
