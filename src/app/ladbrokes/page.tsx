@@ -83,9 +83,9 @@ export default async function LadbrokesPage() {
               </div>
               <a
                 href="/ladbrokes/qr-codes"
-                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-semibold"
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors font-semibold text-sm sm:text-base"
               >
-                📱 QR Codes
+                📱 <span className="hidden sm:inline">QR Codes</span><span className="sm:hidden">Codes</span>
               </a>
             </div>
           </div>

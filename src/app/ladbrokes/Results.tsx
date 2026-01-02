@@ -27,7 +27,6 @@ interface ResultsProps {
 export default function Results({ matchups }: ResultsProps) {
   const [bets, setBets] = useState<StoredBet[]>([]);
   const [results, setResults] = useState<Map<number, number | null>>(new Map());
-  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     // Load bets from localStorage
@@ -58,14 +57,7 @@ export default function Results({ matchups }: ResultsProps) {
     localStorage.setItem('ladbrokes_results', JSON.stringify(resultsArray));
   };
 
-  const clearAllData = () => {
-    if (confirm('Are you sure you want to clear all bets and results?')) {
-      localStorage.removeItem('ladbrokes_bets');
-      localStorage.removeItem('ladbrokes_results');
-      setBets([]);
-      setResults(new Map());
-    }
-  };
+
 
   // Group bets by matchup
   const betsByMatchup = new Map<number, StoredBet[]>();
@@ -183,18 +175,6 @@ export default function Results({ matchups }: ResultsProps) {
                       </div>
                       <div className="text-sm text-slate-400">{matchup.team1.username}</div>
                     </div>
-                    {editMode && (
-                      <button
-                        onClick={() => setWinner(matchup.id, winner === matchup.team1.rosterId ? null : matchup.team1.rosterId)}
-                        className={`px-3 py-1 rounded text-sm font-semibold ${
-                          winner === matchup.team1.rosterId
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                        }`}
-                      >
-                        {winner === matchup.team1.rosterId ? 'Winner' : 'Set Winner'}
-                      </button>
-                    )}
                   </div>
                   {team1Bets.length > 0 && (
                     <div className="text-sm text-slate-300 flex flex-wrap gap-2">
@@ -231,18 +211,6 @@ export default function Results({ matchups }: ResultsProps) {
                       </div>
                       <div className="text-sm text-slate-400">{matchup.team2.username}</div>
                     </div>
-                    {editMode && (
-                      <button
-                        onClick={() => setWinner(matchup.id, winner === matchup.team2.rosterId ? null : matchup.team2.rosterId)}
-                        className={`px-3 py-1 rounded text-sm font-semibold ${
-                          winner === matchup.team2.rosterId
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                        }`}
-                      >
-                        {winner === matchup.team2.rosterId ? 'Winner' : 'Set Winner'}
-                      </button>
-                    )}
                   </div>
                   {team2Bets.length > 0 && (
                     <div className="text-sm text-slate-300 flex flex-wrap gap-2">
