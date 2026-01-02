@@ -1,7 +1,7 @@
 // app/league-history/page.tsx
 
 import { SLEEPER_LEAGUE_ID } from "@/lib/config";
-import { normalizeUsername, getDisplayName } from "@/lib/normalize-username";
+import { normalizeUsername, getDisplayName, getRosterUsername } from "@/lib/normalize-username";
 import { getLeagueHistory, getLeagueRosters, getLeagueUsers } from "@/lib/sleeper";
 import SeasonTabs from "@/components/SeasonTabs";
 import HomeButton from "@/components/HomeButton";
@@ -41,8 +41,6 @@ export default async function LeagueHistoryPage() {
     const seasonTeams = new Map<string, SeasonRow>();
 
     for (const roster of rosters as any[]) {
-      if (!roster.owner_id) continue;
-
       const user = usersById.get(roster.owner_id);
       const settings = roster.settings || {};
 
@@ -53,13 +51,17 @@ export default async function LeagueHistoryPage() {
         (settings.fpts_against ?? 0) +
         ((settings.fpts_against_decimal ?? 0) / 100);
 
-      const username = user?.username || user?.display_name || user?.user_id || `Team ${roster.roster_id}`;
+      // Check if we have a manual mapping for this roster
+      const mappedUsername = getRosterUsername(league.league_id, roster.roster_id);
+      const username = mappedUsername || user?.username || user?.display_name || user?.user_id || roster.owner_id || `Team ${roster.roster_id}`;
       const normalized = normalizeUsername(username);
       const formattedUsername = normalized.startsWith('@') ? normalized : `@${normalized}`;
       const displayName = getDisplayName(username);
 
-      seasonTeams.set(roster.owner_id, {
-        userId: roster.owner_id,
+      const userId = roster.owner_id || `roster_${roster.roster_id}`;
+      
+      seasonTeams.set(userId, {
+        userId,
         username: formattedUsername,
         name: displayName,
         pf,

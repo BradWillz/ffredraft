@@ -25,13 +25,21 @@ const DISPLAY_NAMES: Record<string, string> = {
 /**
  * Mapping of roster IDs to usernames for cases where owner_id is missing
  * Format: "leagueId_rosterId" -> username
- * You can also use just "rosterId" as a fallback for any league
+ * Roster 8 has had multiple players across different seasons
  */
 const ROSTER_TO_USERNAME: Record<string, string> = {
-  // 2021 season - Team 8 is Thomas1995
-  '656343228967378944_8': 'Thomas1995',
-  // Fallback: if league ID doesn't match, try roster ID alone
-  '8': 'Thomas1995',
+  // 2021 season - Team 8 is Thomas1995 (Tommy Mac)
+  '726147812953296896_8': 'Thomas1995',
+  // 2022 season - Team 8 is DeclanHughes3 (Randall)
+  '850075634540597248_8': 'DeclanHughes3',
+  // 2023 season - Team 8 is DeclanHughes3 (Randall)
+  '991770914062688256_8': 'DeclanHughes3',
+  // 2024 season - Team 8 is ieuanlewis21 (YS)
+  '1096400120607780864_8': 'ieuanlewis21',
+  // 2025 season - Team 8 is ieuanlewis21 (YS)
+  '1187453772455809024_8': 'ieuanlewis21',
+  // Fallback for current/future seasons
+  '8': 'ieuanlewis21',
 };
 
 /**

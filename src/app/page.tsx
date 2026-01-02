@@ -43,6 +43,13 @@ export default function Home() {
       href: "/history",
       icon: "🏆",
       color: "from-orange-600 to-orange-500"
+    },
+    {
+      title: "Ladbrokes",
+      description: "Bet on this week's matchups",
+      href: "/ladbrokes",
+      icon: "🎰",
+      color: "from-emerald-600 to-emerald-500"
     }
   ];
 
