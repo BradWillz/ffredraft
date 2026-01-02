@@ -72,7 +72,26 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                         }} />
                         
                         {/* Trophy Display */}
-                        <div className="relative flex items-center justify-center gap-4 sm:gap-6 md:gap-8 p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
+                        <div className="relative flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-8 p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
+                          {/* Plaque - Above trophy on mobile, on trophy on desktop */}
+                          <div className="sm:hidden mb-4">
+                            <div className="relative bg-gradient-to-br from-yellow-600 via-yellow-700 to-yellow-800 rounded-lg px-4 py-2 border-2 border-yellow-500 shadow-lg min-w-[200px]">
+                              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-lg pointer-events-none" />
+                              
+                              <div className="relative text-center space-y-1">
+                                <div className="text-yellow-950 font-black text-xs tracking-wide">
+                                  CHAMPION
+                                </div>
+                                <div className="text-white font-bold text-lg leading-tight">
+                                  👑 {item.championName}
+                                </div>
+                                <div className="text-yellow-950 font-semibold text-sm border-t border-yellow-800/50 pt-1">
+                                  {item.season}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* Trophy with Integrated Plaque */}
                           <div className="relative group">
                             {/* Trophy Glow */}
@@ -83,8 +102,8 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                               🏆
                             </div>
                             
-                            {/* Plaque Integrated into Trophy Base */}
-                            <div className="absolute bottom-[1.5%] sm:bottom-[2.5%] md:bottom-[3.5%] left-1/2 -translate-x-1/2 z-20">
+                            {/* Plaque Integrated into Trophy Base - Hidden on mobile */}
+                            <div className="hidden sm:block absolute bottom-[1.5%] sm:bottom-[2.5%] md:bottom-[3.5%] left-1/2 -translate-x-1/2 z-20">
                               <div className="relative bg-gradient-to-br from-yellow-600 via-yellow-700 to-yellow-800 rounded px-1.5 py-0.5 sm:px-2 sm:py-1 md:px-3 md:py-1.5 border border-yellow-500 shadow-lg">
                                 {/* Plaque Shine */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent rounded pointer-events-none" />
@@ -158,7 +177,26 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                         }} />
                         
                         {/* Toilet Display */}
-                        <div className="relative flex items-center justify-center gap-4 sm:gap-6 md:gap-8 p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
+                        <div className="relative flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-8 p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
+                          {/* Plaque - Above toilet on mobile, on toilet on desktop */}
+                          <div className="sm:hidden mb-4">
+                            <div className="relative bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 rounded-lg px-4 py-2 border-2 border-slate-300 shadow-lg min-w-[200px]">
+                              <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent rounded-lg pointer-events-none" />
+                              
+                              <div className="relative text-center space-y-1">
+                                <div className="text-slate-800 font-black text-xs tracking-wide">
+                                  LAST PLACE
+                                </div>
+                                <div className="text-slate-900 font-bold text-lg leading-tight">
+                                  💩 {item.lastPlaceName}
+                                </div>
+                                <div className="text-slate-800 font-semibold text-sm border-t border-slate-600/50 pt-1">
+                                  {item.season}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* Toilet with Integrated Plaque */}
                           <div className="relative group">
                             {/* Toilet Glow */}
@@ -169,8 +207,8 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                               🚽
                             </div>
                             
-                            {/* Plaque Integrated into Toilet Base */}
-                            <div className="absolute bottom-[1.5%] sm:bottom-[2.5%] md:bottom-[3.5%] left-1/2 -translate-x-1/2 z-20">
+                            {/* Plaque Integrated into Toilet Base - Hidden on mobile */}
+                            <div className="hidden sm:block absolute bottom-[1.5%] sm:bottom-[2.5%] md:bottom-[3.5%] left-1/2 -translate-x-1/2 z-20">
                               <div className="relative bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 rounded px-1.5 py-0.5 sm:px-2 sm:py-1 md:px-3 md:py-1.5 border border-slate-300 shadow-lg">
                                 {/* Plaque Shine */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent rounded pointer-events-none" />
