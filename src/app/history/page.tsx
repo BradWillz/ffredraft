@@ -79,10 +79,10 @@ export default async function HistoryPage() {
         {/* Header */}
         <div className="mb-8 sm:mb-12 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 sm:mb-4">
-            🏆 League History
+            🏆 Champion's Corner
           </h1>
           <p className="text-slate-400 text-sm sm:text-base md:text-lg">
-            Champions and last place finishers
+            Hall of fame trophy cabinet
           </p>
         </div>
 

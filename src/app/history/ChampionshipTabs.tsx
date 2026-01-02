@@ -29,7 +29,7 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
                 : "text-slate-400 hover:text-white hover:bg-slate-700/30"
             }`}
           >
-            🏆 Championship
+            🏆 Champions
           </button>
           <button
             onClick={() => setSelectedTab("poopBowl")}
@@ -44,44 +44,145 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden p-4 sm:p-6 md:p-8">
-        <div className="space-y-3 sm:space-y-4">
-          {history.map((item) => (
-            <div 
-              key={item.season} 
-              className="bg-slate-900/50 rounded-lg sm:rounded-xl p-4 sm:p-6 border border-slate-700 hover:border-blue-500/50 transition-all duration-200"
-            >
-              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-                <span className={`inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full font-bold text-lg sm:text-xl ${
-                  selectedTab === "championship"
-                    ? "bg-yellow-500/20 text-yellow-400"
-                    : "bg-amber-700/20 text-amber-400"
-                }`}>
-                  {item.season}
-                </span>
-                <div className="flex-1 min-w-[200px]">
-                  <h3 className="text-base sm:text-xl font-bold text-white">{item.leagueName}</h3>
-                  <p className="text-slate-400 text-xs sm:text-base">
-                    {selectedTab === "championship" ? "Season Champion" : "Last Place"}
-                  </p>
-                </div>
-                <div className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg border min-w-[120px] sm:min-w-[140px] text-center ${
-                  selectedTab === "championship"
-                    ? "bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border-yellow-500/30"
-                    : "bg-gradient-to-r from-amber-700/20 to-amber-600/20 border-amber-600/30"
-                }`}>
-                  <span className={`text-sm sm:text-lg font-bold ${
-                    selectedTab === "championship" ? "text-yellow-400" : "text-amber-400"
-                  }`}>
-                    {selectedTab === "championship" ? `👑 ${item.championName}` : `💩 ${item.lastPlaceName}`}
-                  </span>
-                </div>
+      {/* Trophy Cabinet */}
+      {selectedTab === "championship" ? (
+        <div className="relative">
+          {/* Cabinet Background with Wood Texture */}
+          <div className="bg-gradient-to-br from-amber-800 via-amber-900 to-amber-950 rounded-xl sm:rounded-2xl shadow-2xl border-4 border-amber-950 p-2 sm:p-3 md:p-4">
+            {/* Cabinet Inner Shadow */}
+            <div className="bg-gradient-to-b from-amber-950/20 to-transparent rounded-lg p-2 sm:p-3">
+              
+              {/* Trophy Shelves */}
+              <div className="space-y-3 sm:space-y-4 md:space-y-5">
+                {history.map((item, index) => (
+                  <div key={item.season}>
+                    {/* Shelf */}
+                    <div className="relative">
+                      {/* Shelf Shadow/Depth */}
+                      <div className="absolute inset-0 bg-gradient-to-b from-amber-950/40 to-amber-950/10 rounded-t-lg transform translate-y-1" />
+                      
+                      {/* Shelf Surface */}
+                      <div className="relative bg-gradient-to-b from-amber-700 via-amber-800 to-amber-900 rounded-lg border-t-2 border-amber-600 border-b-4 border-b-amber-950 shadow-xl">
+                        {/* Wood Grain Effect */}
+                        <div className="absolute inset-0 opacity-20 bg-gradient-to-r from-transparent via-amber-950 to-transparent" style={{
+                          backgroundSize: '100px 100%',
+                          backgroundRepeat: 'repeat-x'
+                        }} />
+                        
+                        {/* Trophy Display */}
+                        <div className="relative flex items-center justify-center p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
+                          {/* Trophy with Integrated Plaque */}
+                          <div className="relative group">
+                            {/* Trophy Glow */}
+                            <div className="absolute inset-0 bg-yellow-400/20 blur-2xl rounded-full scale-150 group-hover:bg-yellow-400/40 transition-all" />
+                            
+                            {/* Trophy Emoji */}
+                            <div className="relative text-8xl sm:text-9xl md:text-[12rem] lg:text-[14rem] transform group-hover:scale-105 transition-transform duration-300 drop-shadow-2xl z-10">
+                              🏆
+                            </div>
+                            
+                            {/* Plaque Integrated into Trophy Base */}
+                            <div className="absolute bottom-[1.5%] sm:bottom-[2.5%] md:bottom-[3.5%] left-1/2 -translate-x-1/2 z-20">
+                              <div className="relative bg-gradient-to-br from-yellow-600 via-yellow-700 to-yellow-800 rounded px-2 py-1 sm:px-3 sm:py-1.5 border border-yellow-500 shadow-lg">
+                                {/* Plaque Shine */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent rounded pointer-events-none" />
+                                
+                                <div className="relative text-center">
+                                  <div className="text-yellow-950 font-black text-[0.4rem] sm:text-[0.5rem] tracking-tight leading-tight">
+                                    CHAMPION
+                                  </div>
+                                  <div className="text-white font-bold text-xs sm:text-sm md:text-base leading-tight">
+                                    👑 {item.championName}
+                                  </div>
+                                  <div className="text-yellow-950 font-semibold text-[0.5rem] sm:text-[0.65rem] md:text-xs border-t border-yellow-800/50 mt-0.5">
+                                    {item.season}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Shelf Front Edge */}
+                      <div className="h-2 bg-gradient-to-b from-amber-800 to-amber-950 rounded-b-sm shadow-md" />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Poop Bowl Cabinet */
+        <div className="relative">
+          {/* Cabinet Background with Wood Texture */}
+          <div className="bg-gradient-to-br from-amber-800 via-amber-900 to-amber-950 rounded-xl sm:rounded-2xl shadow-2xl border-4 border-amber-950 p-2 sm:p-3 md:p-4">
+            {/* Cabinet Inner Shadow */}
+            <div className="bg-gradient-to-b from-amber-950/20 to-transparent rounded-lg p-2 sm:p-3">
+              
+              {/* Toilet Shelves */}
+              <div className="space-y-3 sm:space-y-4 md:space-y-5">
+                {history.map((item, index) => (
+                  <div key={item.season}>
+                    {/* Shelf */}
+                    <div className="relative">
+                      {/* Shelf Shadow/Depth */}
+                      <div className="absolute inset-0 bg-gradient-to-b from-amber-950/40 to-amber-950/10 rounded-t-lg transform translate-y-1" />
+                      
+                      {/* Shelf Surface */}
+                      <div className="relative bg-gradient-to-b from-amber-700 via-amber-800 to-amber-900 rounded-lg border-t-2 border-amber-600 border-b-4 border-b-amber-950 shadow-xl">
+                        {/* Wood Grain Effect */}
+                        <div className="absolute inset-0 opacity-20 bg-gradient-to-r from-transparent via-amber-950 to-transparent" style={{
+                          backgroundSize: '100px 100%',
+                          backgroundRepeat: 'repeat-x'
+                        }} />
+                        
+                        {/* Toilet Display */}
+                        <div className="relative flex items-center justify-center p-4 sm:p-6 md:p-8 min-h-[300px] sm:min-h-[400px] md:min-h-[500px]">
+                          {/* Toilet with Integrated Plaque */}
+                          <div className="relative group">
+                            {/* Toilet Glow */}
+                            <div className="absolute inset-0 bg-amber-600/20 blur-2xl rounded-full scale-150 group-hover:bg-amber-600/40 transition-all" />
+                            
+                            {/* Toilet Emoji */}
+                            <div className="relative text-8xl sm:text-9xl md:text-[12rem] lg:text-[14rem] transform group-hover:scale-105 transition-transform duration-300 drop-shadow-2xl z-10">
+                              🚽
+                            </div>
+                            
+                            {/* Plaque Integrated into Toilet Base */}
+                            <div className="absolute bottom-[1.5%] sm:bottom-[2.5%] md:bottom-[3.5%] left-1/2 -translate-x-1/2 z-20">
+                              <div className="relative bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 rounded px-2 py-1 sm:px-3 sm:py-1.5 border border-slate-300 shadow-lg">
+                                {/* Plaque Shine */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent rounded pointer-events-none" />
+                                
+                                <div className="relative text-center">
+                                  <div className="text-slate-800 font-black text-[0.4rem] sm:text-[0.5rem] tracking-tight leading-tight">
+                                    LAST PLACE
+                                  </div>
+                                  <div className="text-slate-900 font-bold text-xs sm:text-sm md:text-base leading-tight">
+                                    💩 {item.lastPlaceName}
+                                  </div>
+                                  <div className="text-slate-800 font-semibold text-[0.5rem] sm:text-[0.65rem] md:text-xs border-t border-slate-600/50 mt-0.5">
+                                    {item.season}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Shelf Front Edge */}
+                      <div className="h-2 bg-gradient-to-b from-amber-800 to-amber-950 rounded-b-sm shadow-md" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -38,8 +38,8 @@ export default function Home() {
       color: "from-yellow-600 to-yellow-500"
     },
     {
-      title: "Championship History",
-      description: "Past champions and seasons",
+      title: "Champion's Corner",
+      description: "Hall of fame trophy cabinet",
       href: "/history",
       icon: "🏆",
       color: "from-orange-600 to-orange-500"
