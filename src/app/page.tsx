@@ -50,6 +50,13 @@ export default function Home() {
       href: "/ladbrokes",
       icon: "🎰",
       color: "from-emerald-600 to-emerald-500"
+    },
+    {
+      title: "Spin the Wheel",
+      description: "Weekly winner scenario selector",
+      href: "/spin-the-wheel",
+      icon: "🎡",
+      color: "from-pink-600 to-pink-500"
     }
   ];
 
