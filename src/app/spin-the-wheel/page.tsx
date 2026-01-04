@@ -95,10 +95,6 @@ export default function SpinTheWheelPage() {
     }
   };
 
-  const handleNextWeek = () => {
-    const newWeek = currentWeek + 1;
-    
-
   const handleAddWinner = (week: number, winnerName: string, value: number, details: string) => {
     const scenario = weekResults.find(r => r.week === week)?.scenario || '';
     const newWinner: WeekWinner = {
@@ -146,8 +142,8 @@ export default function SpinTheWheelPage() {
             
             if (qbPoints.points > winnerValue) {
               winnerValue = qbPoints.points;
-              const roster = rosterMap.get(m.roster_id);
-              const user = roster ? userMap.get(roster.owner_id) : null;
+              const roster: any = rosterMap.get(m.roster_id);
+              const user: any = roster ? userMap.get(roster.owner_id) : null;
               winnerName = user ? getDisplayName(user.username || user.display_name) : `Team ${m.roster_id}`;
               details = `${winnerValue.toFixed(2)} pts from QB`;
             }
@@ -172,8 +168,8 @@ export default function SpinTheWheelPage() {
             
             if (kickerPoints.points > winnerValue) {
               winnerValue = kickerPoints.points;
-              const roster = rosterMap.get(m.roster_id);
-              const user = roster ? userMap.get(roster.owner_id) : null;
+              const roster: any = rosterMap.get(m.roster_id);
+              const user: any = roster ? userMap.get(roster.owner_id) : null;
               winnerName = user ? getDisplayName(user.username || user.display_name) : `Team ${m.roster_id}`;
               details = `${winnerValue.toFixed(2)} pts from Kicker`;
             }
@@ -188,8 +184,8 @@ export default function SpinTheWheelPage() {
         case 'Highest Scoring Flex Player': {
           // Generic highest scoring position logic
           matchups.forEach((m: any) => {
-            const roster = rosterMap.get(m.roster_id);
-            const user = roster ? userMap.get(roster.owner_id) : null;
+            const roster: any = rosterMap.get(m.roster_id);
+            const user: any = roster ? userMap.get(roster.owner_id) : null;
             const name = user ? getDisplayName(user.username || user.display_name) : `Team ${m.roster_id}`;
             
             if (m.points > winnerValue) {
@@ -203,8 +199,8 @@ export default function SpinTheWheelPage() {
 
         case 'Most Total Touchdowns (Team)': {
           matchups.forEach((m: any) => {
-            const roster = rosterMap.get(m.roster_id);
-            const user = roster ? userMap.get(roster.owner_id) : null;
+            const roster: any = rosterMap.get(m.roster_id);
+            const user: any = roster ? userMap.get(roster.owner_id) : null;
             const name = user ? getDisplayName(user.username || user.display_name) : `Team ${m.roster_id}`;
             
             if (m.points > winnerValue) {
@@ -226,8 +222,8 @@ export default function SpinTheWheelPage() {
             
             if (benchScore > winnerValue) {
               winnerValue = benchScore;
-              const roster = rosterMap.get(m.roster_id);
-              const user = roster ? userMap.get(roster.owner_id) : null;
+              const roster: any = rosterMap.get(m.roster_id);
+              const user: any = roster ? userMap.get(roster.owner_id) : null;
               winnerName = user ? getDisplayName(user.username || user.display_name) : `Team ${m.roster_id}`;
               details = `${winnerValue.toFixed(2)} bench pts`;
             }
@@ -254,8 +250,8 @@ export default function SpinTheWheelPage() {
               if (margin > biggestMargin) {
                 biggestMargin = margin;
                 const winner = team1.points > team2.points ? team1 : team2;
-                const roster = rosterMap.get(winner.roster_id);
-                const user = roster ? userMap.get(roster.owner_id) : null;
+                const roster: any = rosterMap.get(winner.roster_id);
+                const user: any = roster ? userMap.get(roster.owner_id) : null;
                 winnerName = user ? getDisplayName(user.username || user.display_name) : `Team ${winner.roster_id}`;
                 winnerValue = margin;
                 details = `Won by ${margin.toFixed(2)} pts`;
@@ -284,8 +280,8 @@ export default function SpinTheWheelPage() {
               if (margin < smallestMargin && margin > 0) {
                 smallestMargin = margin;
                 const winner = team1.points > team2.points ? team1 : team2;
-                const roster = rosterMap.get(winner.roster_id);
-                const user = roster ? userMap.get(roster.owner_id) : null;
+                const roster: any = rosterMap.get(winner.roster_id);
+                const user: any = roster ? userMap.get(roster.owner_id) : null;
                 winnerName = user ? getDisplayName(user.username || user.display_name) : `Team ${winner.roster_id}`;
                 winnerValue = margin;
                 details = `Won by ${margin.toFixed(2)} pts`;
@@ -301,8 +297,8 @@ export default function SpinTheWheelPage() {
         default: {
           // Default to highest scoring team for scenarios we can't calculate
           matchups.forEach((m: any) => {
-            const roster = rosterMap.get(m.roster_id);
-            const user = roster ? userMap.get(roster.owner_id) : null;
+            const roster: any = rosterMap.get(m.roster_id);
+            const user: any = roster ? userMap.get(roster.owner_id) : null;
             const name = user ? getDisplayName(user.username || user.display_name) : `Team ${m.roster_id}`;
             
             if (m.points > winnerValue) {
@@ -322,7 +318,11 @@ export default function SpinTheWheelPage() {
       console.error('Error calculating winner:', error);
       alert('Failed to calculate winner. Please add manually.');
     }
-  };setCurrentWeek(newWeek);
+  };
+
+  const handleNextWeek = () => {
+    const newWeek = currentWeek + 1;
+    setCurrentWeek(newWeek);
     localStorage.setItem('wheelCurrentWeek', newWeek.toString());
   };
 
