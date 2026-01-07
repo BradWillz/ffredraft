@@ -77,7 +77,7 @@ export default function Home() {
             🏈 Fantasy Football League
           </h1>
           <p className="text-slate-400 text-sm sm:text-base md:text-lg lg:text-xl">
-            Built with Sleeper + Next.js + Vercel
+            Built with love
           </p>
         </div>
 
