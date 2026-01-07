@@ -57,6 +57,13 @@ export default function Home() {
       href: "/spin-the-wheel",
       icon: "🎡",
       color: "from-pink-600 to-pink-500"
+    },
+    {
+      title: "THE POWER",
+      description: "Track the rubber duck holder",
+      href: "/the-power",
+      icon: "🦆",
+      color: "from-yellow-600 to-orange-500"
     }
   ];
 
