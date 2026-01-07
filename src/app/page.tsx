@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   const pages = [
@@ -62,8 +63,8 @@ export default function Home() {
       title: "THE POWER",
       description: "Track the rubber duck holder",
       href: "/the-power",
-      icon: "🦆",
-      color: "from-yellow-600 to-orange-500"
+      icon: "duck",
+      color: "from-cyan-600 to-blue-600"
     }
   ];
 
@@ -89,7 +90,13 @@ export default function Home() {
               className="group bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden hover:border-slate-500 transition-all duration-300 hover:scale-105"
             >
               <div className={`bg-gradient-to-r ${page.color} px-4 sm:px-6 py-3 sm:py-4`}>
-                <div className="text-3xl sm:text-4xl mb-1 sm:mb-2">{page.icon}</div>
+                {page.icon === 'duck' ? (
+                  <div className="mb-1 sm:mb-2">
+                    <Image src="/rubber-duck.png" alt="Rubber Duck" width={40} height={40} className="w-8 h-8 sm:w-10 sm:h-10" />
+                  </div>
+                ) : (
+                  <div className="text-3xl sm:text-4xl mb-1 sm:mb-2">{page.icon}</div>
+                )}
                 <h2 className="text-xl sm:text-2xl font-bold text-white">{page.title}</h2>
               </div>
               <div className="p-4 sm:p-6">
