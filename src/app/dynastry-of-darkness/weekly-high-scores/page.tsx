@@ -1,7 +1,7 @@
 // app/dynastry-of-darkness/weekly-high-scores/page.tsx
 
 import { DYNASTRY_LEAGUE_ID } from "@/lib/config";
-import { getDisplayName } from "@/lib/normalize-username";
+import { getDisplayName, getRosterUsername } from "@/lib/normalize-username";
 import {
   getLeagueHistory,
   getLeagueMatchups,
@@ -37,7 +37,8 @@ export default async function WeeklyHighScoresPage() {
 
     for (const roster of rosters as any[]) {
       const user = usersById.get(roster.owner_id);
-      const username = user?.username || user?.display_name || user?.user_id || `Team ${roster.roster_id}`;
+      const mappedUsername = getRosterUsername(league.league_id, roster.roster_id);
+      const username = mappedUsername || user?.username || user?.display_name || user?.user_id || `Team ${roster.roster_id}`;
       const displayName = getDisplayName(username);
       rosterNameById.set(roster.roster_id, displayName);
     }

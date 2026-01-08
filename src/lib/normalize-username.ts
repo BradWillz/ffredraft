@@ -8,10 +8,13 @@ const DISPLAY_NAMES: Record<string, string> = {
   'BradWillz': 'Brad',
   'BradKane': 'Brad', // Same person as BradWillz
   'connorjl': 'Connor',
+  'daleedge': 'The Bricky',
+  'Daleedge': 'The Bricky', // Same person as daleedge
   'DaleGriff': 'Griff',
   'DeclanHughes3': 'Randall',
   'dewcrabbe': 'Dewi',
   'dto1989': 'Danny',
+  'Fuge92': 'Fuge',
   'ieuanlewis21': 'YS',
   'Lee_Edge': 'Fringe',
   'liminoso': 'Tucker',
@@ -40,6 +43,8 @@ const ROSTER_TO_USERNAME: Record<string, string> = {
   '1187453772455809024_8': 'ieuanlewis21',
   // Fallback for current/future seasons
   '8': 'ieuanlewis21',
+  // Dynastry of Darkness - 2024 season - Team 7 is DeclanHughes3 (Randall)
+  '1050443686166786048_7': 'DeclanHughes3',
 };
 
 /**
@@ -72,6 +77,11 @@ export function normalizeUsername(username: string): string {
   // BradKane and BradWillz are the same person (BradWillz is most recent)
   if (cleanName === 'BradKane') {
     return 'BradWillz';
+  }
+  
+  // Daleedge -> daleedge for avatar consistency
+  if (cleanName === 'Daleedge') {
+    return 'daleedge';
   }
   
   return cleanName;
