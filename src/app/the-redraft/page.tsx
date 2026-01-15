@@ -46,6 +46,13 @@ export default function TheRedraftPage() {
       color: "from-orange-600 to-orange-500"
     },
     {
+      title: "Draft Analysis",
+      description: "Draft board and performance analysis",
+      href: "/the-redraft/draft-analysis",
+      icon: "📊",
+      color: "from-teal-600 to-teal-500"
+    },
+    {
       title: "Ladbrokes",
       description: "Bet on this week's matchups",
       href: "/ladbrokes",

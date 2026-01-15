@@ -37,6 +37,26 @@ export async function getWinnersBracket(leagueId: string) {
   return sleeperGet(`/league/${leagueId}/winners_bracket`);
 }
 
+// Get all drafts for a league (can have multiple drafts per league)
+export async function getLeagueDrafts(leagueId: string) {
+  return sleeperGet(`/league/${leagueId}/drafts`);
+}
+
+// Get specific draft details
+export async function getDraft(draftId: string) {
+  return sleeperGet(`/draft/${draftId}`);
+}
+
+// Get all picks from a draft
+export async function getDraftPicks(draftId: string) {
+  return sleeperGet(`/draft/${draftId}/picks`);
+}
+
+// Get traded picks for a league
+export async function getTradedPicks(leagueId: string) {
+  return sleeperGet(`/league/${leagueId}/traded_picks`);
+}
+
 // Follow previous_league_id chain backwards for history
 export async function getLeagueHistory(startLeagueId: string) {
   const leagues: any[] = [];

@@ -43,6 +43,13 @@ export default function BullrushPage() {
       href: "/bullrush/history",
       icon: "🏆",
       color: "from-orange-600 to-orange-500"
+    },
+    {
+      title: "Draft Analysis",
+      description: "Draft board and performance analysis",
+      href: "/bullrush/draft-analysis",
+      icon: "📊",
+      color: "from-teal-600 to-teal-500"
     }
   ];
 
