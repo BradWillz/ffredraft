@@ -37,8 +37,32 @@ export default function DraftAnalysisTabs({ seasonsData }: DraftAnalysisTabsProp
   const [selectedSeason, setSelectedSeason] = useState(seasonsData[0]?.season || "");
   const [sortField, setSortField] = useState<SortField>('drafted');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [selectedPositions, setSelectedPositions] = useState<Set<string>>(new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']));
 
   const currentSeasonData = seasonsData.find(s => s.season === selectedSeason);
+
+  // Get unique positions from current season
+  const availablePositions = currentSeasonData 
+    ? Array.from(new Set(currentSeasonData.picks.map(p => p.position))).sort()
+    : [];
+
+  const togglePosition = (position: string) => {
+    const newSelected = new Set(selectedPositions);
+    if (newSelected.has(position)) {
+      newSelected.delete(position);
+    } else {
+      newSelected.add(position);
+    }
+    setSelectedPositions(newSelected);
+  };
+
+  const toggleAllPositions = () => {
+    if (selectedPositions.size === availablePositions.length) {
+      setSelectedPositions(new Set());
+    } else {
+      setSelectedPositions(new Set(availablePositions));
+    }
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -49,7 +73,9 @@ export default function DraftAnalysisTabs({ seasonsData }: DraftAnalysisTabsProp
     }
   };
 
-  const sortedPicks = currentSeasonData ? [...currentSeasonData.picks].sort((a, b) => {
+  const sortedPicks = currentSeasonData ? [...currentSeasonData.picks]
+    .filter(pick => selectedPositions.has(pick.position))
+    .sort((a, b) => {
     let comparison = 0;
     
     switch (sortField) {
@@ -97,6 +123,32 @@ export default function DraftAnalysisTabs({ seasonsData }: DraftAnalysisTabsProp
           {/* Season Header */}
           <div className="bg-gradient-to-r from-red-700 to-orange-700 px-4 sm:px-6 py-3 sm:py-4">
             <h2 className="text-xl sm:text-2xl font-bold text-white">{currentSeasonData.season} Season</h2>
+          </div>
+
+          {/* Position Filters */}
+          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-red-900/30 border-b border-red-700/30">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-red-200 text-sm font-semibold mr-2">Positions:</span>
+              <button
+                onClick={toggleAllPositions}
+                className="px-3 py-1 text-xs font-semibold rounded bg-red-700/50 hover:bg-red-700 text-white transition-colors"
+              >
+                {selectedPositions.size === availablePositions.length ? 'Deselect All' : 'Select All'}
+              </button>
+              {availablePositions.map(position => (
+                <button
+                  key={position}
+                  onClick={() => togglePosition(position)}
+                  className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+                    selectedPositions.has(position)
+                      ? 'bg-red-600 text-white'
+                      : 'bg-red-900/50 text-red-400 hover:bg-red-800/50'
+                  }`}
+                >
+                  {position}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Table */}
