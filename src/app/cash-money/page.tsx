@@ -92,7 +92,7 @@ const starterPrizes: Prize[] = [
 ];
 
 export default function CashMoneyPage() {
-  const [selectedPrizeId, setSelectedPrizeId] = useState('wheel');
+  const [expandedPrizeId, setExpandedPrizeId] = useState<string | null>(null);
   const [prizes, setPrizes] = useState<Prize[]>(starterPrizes);
   const [loadingWeeklyResults, setLoadingWeeklyResults] = useState(true);
 
@@ -152,7 +152,9 @@ export default function CashMoneyPage() {
     loadHighestPointsWinners();
   }, []);
 
-  const selectedPrize = prizes.find((prize) => prize.id === selectedPrizeId) ?? prizes[0];
+  const togglePrize = (prizeId: string) => {
+    setExpandedPrizeId((currentId) => (currentId === prizeId ? null : prizeId));
+  };
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(250,204,21,0.22),_transparent_30%),linear-gradient(135deg,_#020617_0%,_#111827_55%,_#1f2937_100%)] p-4 sm:p-6 md:p-8">
@@ -209,91 +211,81 @@ export default function CashMoneyPage() {
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {prizes.map((prize) => {
-            const isSelected = selectedPrize.id === prize.id;
+            const isExpanded = expandedPrizeId === prize.id;
 
             return (
-              <button
+              <div
                 key={prize.id}
-                type="button"
-                onClick={() => setSelectedPrizeId(prize.id)}
-                className={`rounded-[1.5rem] border p-5 text-left transition-all duration-200 ${
-                  isSelected
+                className={`overflow-hidden rounded-[1.5rem] border p-5 text-left transition-all duration-200 ${
+                  isExpanded
                     ? 'border-amber-400/60 bg-slate-800/90 shadow-lg shadow-amber-500/10'
                     : 'border-slate-700 bg-slate-900/60 hover:border-slate-500 hover:bg-slate-800/70'
                 }`}
               >
-                <div className={`inline-flex rounded-2xl bg-gradient-to-r ${prize.accent} px-3 py-2 text-2xl`}>
-                  {prize.icon}
-                </div>
-                <div className="mt-4 flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-xl font-semibold text-white">{prize.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">{prize.description}</p>
+                <button
+                  type="button"
+                  onClick={() => togglePrize(prize.id)}
+                  className="w-full text-left"
+                >
+                  <div className={`inline-flex rounded-2xl bg-gradient-to-r ${prize.accent} px-3 py-2 text-2xl`}>
+                    {prize.icon}
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-amber-300">{prize.amount}</p>
-                    {prize.weeklyAmount ? (
-                      <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{prize.weeklyAmount}</p>
-                    ) : null}
+                  <div className="mt-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">{prize.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">{prize.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-amber-300">{prize.amount}</p>
+                      {prize.weeklyAmount ? (
+                        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{prize.weeklyAmount}</p>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-                {prize.note ? <p className="mt-3 text-sm text-slate-500">{prize.note}</p> : null}
-              </button>
-            );
-          })}
-        </section>
+                  {prize.note ? <p className="mt-3 text-sm text-slate-500">{prize.note}</p> : null}
+                </button>
 
-        <section className="rounded-[1.75rem] border border-slate-700 bg-slate-900/70 p-5 shadow-xl sm:p-7">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-400">
-                {selectedPrize.isWeekly ? 'Weekly payout spotlight' : 'Season payout'}
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">{selectedPrize.title}</h2>
-              <p className="mt-2 text-sm leading-7 text-slate-400">{selectedPrize.description}</p>
-            </div>
-            {selectedPrize.weeklyAmount ? (
-              <div className="inline-flex rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200">
-                {selectedPrize.weeklyAmount}
-              </div>
-            ) : null}
-          </div>
+                {isExpanded ? (
+                  <div className="mt-5 border-t border-slate-700/80 pt-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400">
+                        {prize.isWeekly ? 'Weekly payout details' : 'Season payout'}
+                      </p>
+                      {prize.id === 'highest-points' && loadingWeeklyResults ? (
+                        <p className="text-sm text-slate-400">Loading Sleeper results…</p>
+                      ) : null}
+                    </div>
 
-          {selectedPrize.isWeekly ? (
-            <div className="mt-6">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400">
-                  Weeks 1–14
-                </p>
-                {selectedPrize.id === 'highest-points' && loadingWeeklyResults ? (
-                  <p className="text-sm text-slate-400">Loading Sleeper results…</p>
+                    {prize.isWeekly ? (
+                      <div className="grid gap-3">
+                        {(prize.weeklyWinners ?? []).map((entry) => (
+                          <div
+                            key={entry.week}
+                            className="flex flex-col gap-2 rounded-2xl border border-slate-700 bg-slate-800/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div>
+                              <p className="font-semibold text-white">Week {entry.week}</p>
+                              <p className="text-sm text-slate-400">{prize.title} winner</p>
+                            </div>
+                            <div className="text-left sm:text-right">
+                              <p className="font-semibold text-amber-300">{entry.winner}</p>
+                              <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+                                Update this later as needed
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-slate-700 bg-slate-800/70 p-4 text-sm leading-7 text-slate-300">
+                        This payout stays simple and clean as a season-long prize, with no week-by-week expansion needed.
+                      </div>
+                    )}
+                  </div>
                 ) : null}
               </div>
-              <div className="grid gap-3">
-                {(selectedPrize.weeklyWinners ?? []).map((entry) => (
-                  <div
-                    key={entry.week}
-                    className="flex flex-col gap-2 rounded-2xl border border-slate-700 bg-slate-800/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <p className="font-semibold text-white">Week {entry.week}</p>
-                      <p className="text-sm text-slate-400">{selectedPrize.title} winner</p>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <p className="font-semibold text-amber-300">{entry.winner}</p>
-                      <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
-                        Update this later as needed
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-800/70 p-4 text-sm leading-7 text-slate-300">
-              This payout stays simple and clean as a season-long prize, with no week-by-week expansion needed.
-            </div>
-          )}
+            );
+          })}
         </section>
       </div>
     </main>
