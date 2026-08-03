@@ -259,7 +259,7 @@ export default function ThePowerPage() {
             <span>📜</span> How It Works
           </h2>
           <div className="space-y-2 text-white/90 text-sm sm:text-base">
-            <p><strong>Week 1:</strong> The highest scoring team earns THE POWER (🦆)</p>
+            <p><strong>Week 1:</strong> The last person holding the physical Power at the end of the Airbnb wins THE POWER (🦆)</p>
             <p><strong>Week 2+:</strong> The current holder keeps THE POWER unless they lose their head-to-head matchup</p>
             <p><strong>Power Transfer:</strong> When the holder loses, their opponent takes THE POWER</p>
             <p className="text-cyan-300 font-semibold mt-3">The holder of THE POWER has ultimate bragging rights... until they lose!</p>
