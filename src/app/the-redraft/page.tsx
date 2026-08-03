@@ -72,6 +72,13 @@ export default function TheRedraftPage() {
       href: "/the-power",
       icon: "duck",
       color: "from-cyan-600 to-blue-600"
+    },
+    {
+      title: "CASH MONEY",
+      description: "Season prize board and weekly payouts",
+      href: "/the-redraft/cash-money",
+      icon: "💸",
+      color: "from-amber-600 to-yellow-600"
     }
   ];
 
