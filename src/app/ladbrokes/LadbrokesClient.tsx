@@ -14,7 +14,7 @@ type Submission = { rosterId: number; picks: Record<string, number>; lockedAt: s
 type RevealedPicks = { rosterId: number; displayName: string; picks: Record<string, number> };
 type LockStatus = { rosterId: number; displayName: string; locked: boolean };
 type WeeklyResult = { week: number; winners: Array<{ rosterId: number; displayName: string; correct: number }>; standings: Array<{ rosterId: number; displayName: string; correct: number; total: number }> };
-type LadbrokesState = { week: number; lastCompletedWeek: number; matchups: Matchup[]; user: Owner | null; ownSubmission: Submission | null; revealedPicks: RevealedPicks[] | null; lockStatus: LockStatus[]; history: WeeklyResult[]; isAdmin: boolean };
+type LadbrokesState = { week: number; lastCompletedWeek: number; lockDeadline: string; picksLocked: boolean; matchups: Matchup[]; user: Owner | null; ownSubmission: Submission | null; revealedPicks: RevealedPicks[] | null; lockStatus: LockStatus[]; history: WeeklyResult[]; isAdmin: boolean };
 type AccessOwner = Owner & { hasCode: boolean };
 
 export default function LadbrokesClient() {
@@ -83,6 +83,7 @@ export default function LadbrokesClient() {
 
   if (!state) return <div className="p-8 text-center text-white/60">Loading the Week&apos;s book...</div>;
   const allPicked = state.matchups.length > 0 && Object.keys(picks).length === state.matchups.length;
+  const lockDeadline = new Date(state.lockDeadline).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
   const seasonStandings = Array.from(state.history.reduce((totals, week) => {
     for (const entry of week.standings) {
       const current = totals.get(entry.rosterId) ?? { rosterId: entry.rosterId, displayName: entry.displayName, correct: 0, weeklyWins: 0 };
@@ -117,7 +118,7 @@ export default function LadbrokesClient() {
         {activeTab === "picks" && state.user && (
           <div>
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-5">
-              <div><p className="eyebrow">Signed in as</p><h2 className="text-3xl font-bold uppercase text-white">{state.user.displayName}</h2><p className="text-white/50">Week {state.week} · {state.ownSubmission ? "Picks locked" : `${Object.keys(picks).length}/${state.matchups.length} selected`}</p></div>
+              <div><p className="eyebrow">Signed in as</p><h2 className="text-3xl font-bold uppercase text-white">{state.user.displayName}</h2><p className="text-white/50">Week {state.week} · {state.ownSubmission ? "Picks locked" : state.picksLocked ? "Selections closed" : `${Object.keys(picks).length}/${state.matchups.length} selected`}</p><p className={state.picksLocked ? "mt-1 text-sm font-bold text-orange-300" : "mt-1 text-sm text-white/50"}>{state.picksLocked ? "Locked at first kickoff" : "Locks at first kickoff"}: {lockDeadline}</p></div>
               <button type="button" onClick={signOut} className="tool-command px-4 py-2">Sign out</button>
             </div>
             {state.matchups.length === 0 ? <p className="py-12 text-center text-white/60">Sleeper has not published Week {state.week} matchups yet.</p> : (
@@ -128,14 +129,14 @@ export default function LadbrokesClient() {
                     {[matchup.team1, matchup.team2].map((team) => {
                       const selected = picks[String(matchup.id)] === team.rosterId;
                       const selectors = state.revealedPicks?.filter((entry) => entry.picks[String(matchup.id)] === team.rosterId) ?? [];
-                      return <button key={team.rosterId} type="button" disabled={!!state.ownSubmission} onClick={() => setPicks((current) => ({ ...current, [String(matchup.id)]: team.rosterId }))} className={`mb-2 w-full border p-4 text-left transition-colors ${selected ? "border-lime-300 bg-lime-300/10" : "border-white/10 bg-black/20 hover:border-white/30"}`}><strong className="block text-lg text-white">{team.displayName}</strong><span className="text-sm text-white/50">{team.username}</span>{state.ownSubmission && <span className="mt-3 flex flex-wrap gap-2">{selectors.length > 0 ? selectors.map((entry) => <span key={entry.rosterId} className="border border-white/15 bg-black/30 px-2 py-1 text-xs font-bold uppercase text-white/75">{entry.displayName}</span>) : <span className="text-xs text-white/35">No locked picks</span>}</span>}</button>;
+                      return <button key={team.rosterId} type="button" disabled={!!state.ownSubmission || state.picksLocked} onClick={() => setPicks((current) => ({ ...current, [String(matchup.id)]: team.rosterId }))} className={`mb-2 w-full border p-4 text-left transition-colors disabled:cursor-default ${selected ? "border-lime-300 bg-lime-300/10" : "border-white/10 bg-black/20 hover:border-white/30"}`}><strong className="block text-lg text-white">{team.displayName}</strong><span className="text-sm text-white/50">{team.username}</span>{state.ownSubmission && <span className="mt-3 flex flex-wrap gap-2">{selectors.length > 0 ? selectors.map((entry) => <span key={entry.rosterId} className="border border-white/15 bg-black/30 px-2 py-1 text-xs font-bold uppercase text-white/75">{entry.displayName}</span>) : <span className="text-xs text-white/35">No locked picks</span>}</span>}</button>;
                     })}
                   </section>
                 ))}
               </div>
             )}
             {error && <p className="mt-4 text-center text-red-400">{error}</p>}
-            {state.ownSubmission ? <div className="mt-6 border border-lime-300/40 bg-lime-300/10 p-5 text-center"><strong className="text-lime-300">Picks locked for Week {state.week}</strong><p className="mt-1 text-sm text-white/60">Your entry is final. Other locked selections are now shown against each team above.</p></div> : <button type="button" onClick={lockPicks} disabled={!allPicked || saving} className="tool-command mt-6 w-full p-4 disabled:opacity-40">{saving ? "Locking..." : allPicked ? "Lock in all picks" : `Choose ${state.matchups.length - Object.keys(picks).length} more`}</button>}
+            {state.ownSubmission ? <div className="mt-6 border border-lime-300/40 bg-lime-300/10 p-5 text-center"><strong className="text-lime-300">Picks locked for Week {state.week}</strong><p className="mt-1 text-sm text-white/60">Your entry is final. Other locked selections are now shown against each team above.</p></div> : state.picksLocked ? <div className="mt-6 border border-orange-300/40 bg-orange-300/10 p-5 text-center"><strong className="text-orange-300">Week {state.week} selections are closed</strong><p className="mt-1 text-sm text-white/60">The first game has kicked off. No late entries can be submitted.</p></div> : <button type="button" onClick={lockPicks} disabled={!allPicked || saving} className="tool-command mt-6 w-full p-4 disabled:opacity-40">{saving ? "Locking..." : allPicked ? "Lock in all picks" : `Choose ${state.matchups.length - Object.keys(picks).length} more`}</button>}
           </div>
         )}
 

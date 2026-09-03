@@ -19,6 +19,8 @@ export async function GET() {
   return NextResponse.json({
     week: context.week,
     lastCompletedWeek: context.lastCompletedWeek,
+    lockDeadline: context.lockDeadline,
+    picksLocked: context.picksLocked,
     matchups: context.matchups,
     user: session ? context.owners.find((owner) => owner.rosterId === session.rosterId) ?? null : null,
     ownSubmission: ownSubmission ?? null,
@@ -33,6 +35,7 @@ export async function POST(request: Request) {
   const session = await getLadbrokesSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const context = await getLadbrokesContext();
+  if (context.picksLocked) return NextResponse.json({ error: "Picks are locked for this week" }, { status: 423 });
   const body = await request.json() as { week?: number; picks?: Record<string, number> };
   if (body.week !== context.week || !body.picks) return NextResponse.json({ error: "Invalid or expired week" }, { status: 400 });
   const valid = context.matchups.length > 0 && context.matchups.every((matchup) => {

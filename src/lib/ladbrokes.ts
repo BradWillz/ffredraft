@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { parse } from "csv-parse/sync";
 import { SLEEPER_LEAGUE_ID } from "./config";
 import { getDisplayName } from "./normalize-username";
 import { getLeague, getLeagueMatchups, getLeagueRosters, getLeagueUsers } from "./sleeper";
@@ -37,6 +38,36 @@ type AccessRecord = { rosterId: number; ownerId: string; codeHash: string };
 type SleeperRoster = { roster_id: number; owner_id?: string };
 type SleeperUser = { user_id: string; username?: string; display_name?: string };
 type SleeperMatchup = { roster_id: number; matchup_id: number | null; points?: number | null };
+type ScheduleGame = { season: string; week: string; game_type: string; gameday: string; gametime: string };
+
+function easternKickoffUtc(gameday: string, gametime: string) {
+  const [year, month, day] = gameday.split("-").map(Number);
+  const [hour, minute] = gametime.split(":").map(Number);
+  const desired = Date.UTC(year, month - 1, day, hour, minute);
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(new Date(desired)).filter((part) => part.type !== "literal").map((part) => [part.type, Number(part.value)]));
+  const represented = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+  return new Date(desired + (desired - represented));
+}
+
+async function getWeekLockDeadline(season: string, week: number) {
+  const response = await fetch("https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv", { next: { revalidate: 60 * 60 * 6 } });
+  if (!response.ok) throw new Error("NFL schedule is unavailable");
+  const games = parse(await response.text(), { columns: true, skip_empty_lines: true }) as ScheduleGame[];
+  const kickoffs = games
+    .filter((game) => game.season === season && game.game_type === "REG" && Number(game.week) === week && game.gameday && game.gametime)
+    .map((game) => easternKickoffUtc(game.gameday, game.gametime).getTime());
+  if (kickoffs.length === 0) throw new Error(`No NFL kickoff found for ${season} Week ${week}`);
+  return new Date(Math.min(...kickoffs));
+}
 
 function accessCodeHash(code: string) {
   return createHash("sha256").update(code.trim().toUpperCase()).digest("hex");
@@ -174,10 +205,11 @@ export async function getLadbrokesContext() {
   const league = await getLeague(SLEEPER_LEAGUE_ID);
   const lastCompletedWeek = Number(league.settings?.last_scored_leg ?? 0);
   const week = Math.max(1, lastCompletedWeek + 1);
-  const [rawRosters, rawUsers, rawMatchups] = await Promise.all([
+  const [rawRosters, rawUsers, rawMatchups, lockDeadline] = await Promise.all([
     getLeagueRosters(SLEEPER_LEAGUE_ID),
     getLeagueUsers(SLEEPER_LEAGUE_ID),
     getLeagueMatchups(SLEEPER_LEAGUE_ID, week),
+    getWeekLockDeadline(String(league.season), week),
   ]);
   const rosters = rawRosters as SleeperRoster[];
   const users = rawUsers as SleeperUser[];
@@ -188,5 +220,5 @@ export async function getLadbrokesContext() {
     return { rosterId: roster.roster_id, ownerId: roster.owner_id!, displayName: getDisplayName(username), username: `@${username.replace(/^@/, "")}` };
   });
   const matchups = buildMatchups(rawMatchups as SleeperMatchup[], owners);
-  return { week, lastCompletedWeek, owners, matchups };
+  return { week, lastCompletedWeek, lockDeadline: lockDeadline.toISOString(), picksLocked: Date.now() >= lockDeadline.getTime(), owners, matchups };
 }
