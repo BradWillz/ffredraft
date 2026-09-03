@@ -173,7 +173,7 @@ export async function getLadbrokesHistory(lastCompletedWeek: number, owners: Lad
 export async function getLadbrokesContext() {
   const league = await getLeague(SLEEPER_LEAGUE_ID);
   const lastCompletedWeek = Number(league.settings?.last_scored_leg ?? 0);
-  const week = Math.max(1, Number(league.settings?.leg ?? 0), lastCompletedWeek + 1);
+  const week = Math.max(1, lastCompletedWeek + 1);
   const [rawRosters, rawUsers, rawMatchups] = await Promise.all([
     getLeagueRosters(SLEEPER_LEAGUE_ID),
     getLeagueUsers(SLEEPER_LEAGUE_ID),
