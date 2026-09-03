@@ -42,9 +42,10 @@ export default function AdminPage() {
           {isAdmin ? (
             <div className="mt-8">
               <p className="text-slate-300">This browser can now edit shared league tools.</p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 <Link href="/spin-the-wheel" className="tool-command p-4 text-center">Manage the wheel</Link>
                 <Link href="/the-power" className="tool-command p-4 text-center">Manage the duck</Link>
+                <Link href="/ladbrokes" className="tool-command p-4 text-center">Manage Ladbrokes</Link>
               </div>
               <button type="button" onClick={logout} className="tool-command tool-command--danger mt-6 px-5 py-3">Log out</button>
             </div>

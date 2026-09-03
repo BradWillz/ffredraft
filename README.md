@@ -18,7 +18,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Commissioner tools
 
-The wheel and duck pages are public and read-only. Commissioner controls are available at `/admin` after signing in.
+The wheel and duck pages are public and read-only. Commissioner controls are available at `/admin` after signing in. Ladbrokes uses commissioner-generated, per-owner access codes; picks are stored privately by Sleeper week while the public lock-status board shows only who has submitted.
 
 Copy `.env.example` to `.env.local` and set `ADMIN_PASSWORD`. For shared persistent state, create an Upstash Redis integration in the Vercel Marketplace and provide `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Without Redis, development uses process-local memory that resets when the server restarts.
 
