@@ -11,7 +11,11 @@ export default function SiteHeader() {
     <header className="site-header">
       <div className="site-header__inner">
         <Link href="/" className="site-brand" aria-label="The Main Leagues home">
-          <span className="site-brand__mark" aria-hidden="true">4</span>
+          <span className="site-brand__mark" aria-hidden="true">
+            <span className="site-brand__football">
+              <span className="site-brand__laces" />
+            </span>
+          </span>
           <span>
             <strong>The Main Leagues</strong>
             <small>Fantasy Football League Office</small>

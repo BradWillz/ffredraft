@@ -40,7 +40,11 @@ a { text-underline-offset: 3px; }
 .site-header::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: linear-gradient(90deg, var(--lime) 0 34%, var(--orange) 34% 67%, var(--gold) 67%); opacity: .75; }
 .site-header__inner { width: min(100% - 32px, 1440px); min-height: 72px; margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .site-brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
-.site-brand__mark { width: 42px; height: 42px; display: grid; place-items: center; border: 2px solid var(--lime); border-radius: 50%; color: var(--lime); font: 800 25px/1 var(--font-display); transform: rotate(-7deg); }
+.site-brand__mark { width: 42px; height: 42px; display: grid; place-items: center; flex: 0 0 auto; border: 2px solid var(--lime); border-radius: 50%; color: var(--lime); }
+.site-brand__football { position: relative; display: block; width: 24px; height: 14px; border: 2px solid currentColor; border-radius: 50%; transform: rotate(-28deg); box-shadow: 0 0 9px rgba(199, 255, 47, .22); }
+.site-brand__football::before { content: ""; position: absolute; inset: 2px 8px; border-inline: 1px solid currentColor; border-radius: 50%; }
+.site-brand__laces { position: absolute; top: 50%; left: 50%; width: 8px; height: 2px; border-block: 1px solid currentColor; transform: translate(-50%, -50%); }
+.site-brand__laces::before { content: ""; position: absolute; top: -3px; left: 3px; width: 1px; height: 6px; background: currentColor; box-shadow: 2px 0 0 currentColor; }
 .site-brand strong { display: block; font: 800 21px/1 var(--font-display); text-transform: uppercase; }
 .site-brand small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; }
 .league-nav { display: flex; align-items: center; gap: 6px; }
