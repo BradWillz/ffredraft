@@ -29,16 +29,16 @@ export default function UserTabs({ groupedByTeam }: UserTabsProps) {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Tabs */}
-      <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
-        <div className="flex flex-wrap">
+      <div className="league-tabs">
+        <div className="league-tabs__list">
           {teams.map(([teamName]) => (
             <button
               key={teamName}
               onClick={() => setSelectedTeam(teamName)}
-              className={`flex-1 min-w-[120px] px-3 sm:px-4 py-3 sm:py-4 text-sm sm:text-base font-bold whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`league-tab min-w-[120px] ${
                 selectedTeam === teamName
-                  ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/30"
+                  ? "league-tab--active"
+                  : "league-tab--idle"
               }`}
             >
               <span>{teamName}</span>
@@ -49,9 +49,9 @@ export default function UserTabs({ groupedByTeam }: UserTabsProps) {
 
       {/* Selected Team Data */}
       {currentTeamData && (
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+        <div className="league-panel">
           {/* Team Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 sm:px-6 py-3 sm:py-4">
+          <div className="league-panel__header">
             <div className="flex items-center gap-2 sm:gap-3">
               <UserAvatar username={selectedTeamUsername} />
               <h2 className="text-xl sm:text-2xl font-bold text-white">{selectedTeam}</h2>

@@ -6,23 +6,9 @@ import WheelSpinner, { WHEEL_COLORS } from './WheelSpinner';
 import { getLeagueMatchups, getLeagueRosters, getLeagueUsers } from '@/lib/sleeper';
 import { SLEEPER_LEAGUE_ID } from '@/lib/config';
 import { getDisplayName } from '@/lib/normalize-username';
+import { WHEEL_SCENARIOS } from '@/lib/wheel-state';
 
-const SCENARIOS = [
-  "Highest Scoring Starting QB",
-  "Highest Scoring Kicker",
-  "Highest Scoring Defense",
-  "Highest Scoring RB",
-  "Highest Scoring WR",
-  "Highest Scoring TE",
-  "Most Total Touchdowns (Team)",
-  "Highest Bench Score",
-  "Biggest Blowout Win",
-  "Closest Matchup Winner",
-  "Highest Scoring Flex Player",
-  "Most Receiving Yards (Single Player)",
-  "Most Rushing Yards (Single Player)",
-  "Most Sacks from a D/ST"
-];
+const SCENARIOS = WHEEL_SCENARIOS;
 
 interface WeekResult {
   week: number;
@@ -44,21 +30,25 @@ export default function SpinTheWheelPage() {
   const [weekResults, setWeekResults] = useState<WeekResult[]>([]);
   const [weekWinners, setWeekWinners] = useState<WeekWinner[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showWinnersTab, setShowWinnersTab] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    // Load saved data from localStorage
-    const savedWeek = localStorage.getItem('wheelCurrentWeek');
-    const savedScenarios = localStorage.getItem('wheelAvailableScenarios');
-    const savedResults = localStorage.getItem('wheelResults');
-    const savedWinners = localStorage.getItem('wheelWinners');
-
-    if (savedWeek) setCurrentWeek(parseInt(savedWeek));
-    if (savedScenarios) setAvailableScenarios(JSON.parse(savedScenarios));
-    if (savedResults) setWeekResults(JSON.parse(savedResults));
-    if (savedWinners) setWeekWinners(JSON.parse(savedWinners));
+    Promise.all([
+      fetch('/api/wheel', { cache: 'no-store' }).then(response => response.json()),
+      fetch('/api/admin/session', { cache: 'no-store' }).then(response => response.json()),
+    ]).then(([wheelState, session]) => {
+      setCurrentWeek(wheelState.currentWeek);
+      setAvailableScenarios(wheelState.availableScenarios);
+      setWeekResults(wheelState.weekResults);
+      setWeekWinners(wheelState.weekWinners);
+      setIsAdmin(session.isAdmin === true);
+    });
   }, []);
+
+  const saveWheelState = (state: { currentWeek: number; availableScenarios: string[]; weekResults: WeekResult[]; weekWinners: WeekWinner[] }) =>
+    fetch('/api/wheel', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) });
 
   const handleSpinComplete = (selectedScenario: string) => {
     const newResult: WeekResult = {
@@ -76,22 +66,18 @@ export default function SpinTheWheelPage() {
     setAvailableScenarios(newAvailable);
     setCurrentWeek(newWeek);
 
-    // Save to localStorage
-    localStorage.setItem('wheelCurrentWeek', newWeek.toString());
-    localStorage.setItem('wheelAvailableScenarios', JSON.stringify(newAvailable));
-    localStorage.setItem('wheelResults', JSON.stringify(newResults));
+    void saveWheelState({ currentWeek: newWeek, availableScenarios: newAvailable, weekResults: newResults, weekWinners });
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (confirm('Are you sure you want to reset the wheel for a new season? This will clear all history.')) {
-      setCurrentWeek(1);
-      setWeekWinners([]);
-      localStorage.removeItem('wheelCurrentWeek');
-      localStorage.removeItem('wheelAvailableScenarios');
-      localStorage.removeItem('wheelResults');
-      localStorage.removeItem('wheelWinnertWeek');
-      localStorage.removeItem('wheelAvailableScenarios');
-      localStorage.removeItem('wheelResults');
+      const response = await fetch('/api/wheel', { method: 'DELETE' });
+      if (!response.ok) return;
+      const state = await response.json();
+      setCurrentWeek(state.currentWeek);
+      setAvailableScenarios(state.availableScenarios);
+      setWeekResults(state.weekResults);
+      setWeekWinners(state.weekWinners);
     }
   };
 
@@ -107,7 +93,7 @@ export default function SpinTheWheelPage() {
 
     const updatedWinners = [...weekWinners.filter(w => w.week !== week), newWinner].sort((a, b) => a.week - b.week);
     setWeekWinners(updatedWinners);
-    localStorage.setItem('wheelWinners', JSON.stringify(updatedWinners));
+    void saveWheelState({ currentWeek, availableScenarios, weekResults, weekWinners: updatedWinners });
   };
 
   const calculateWinner = async (week: number, scenario: string) => {
@@ -323,12 +309,12 @@ export default function SpinTheWheelPage() {
   const handleNextWeek = () => {
     const newWeek = currentWeek + 1;
     setCurrentWeek(newWeek);
-    localStorage.setItem('wheelCurrentWeek', newWeek.toString());
+    void saveWheelState({ currentWeek: newWeek, availableScenarios, weekResults, weekWinners });
   };
 
   if (!isClient) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-8">
+      <div className="redraft-tool min-h-screen p-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Link 
@@ -349,10 +335,10 @@ export default function SpinTheWheelPage() {
   const canSpin = availableScenarios.length > 0 && !currentWeekResult;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4 sm:p-8">
+    <div className="redraft-tool min-h-screen p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+        <div className="redraft-tool__header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex items-center gap-3 sm:gap-4">
             <Link 
               href="/" 
@@ -362,27 +348,27 @@ export default function SpinTheWheelPage() {
             </Link>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">🎡 Spin the Wheel</h1>
           </div>
-          <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+          {isAdmin && <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               onClick={handleNextWeek}
               disabled={currentWeek >= 14}
-              className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-1 sm:flex-none"
+              className="tool-command px-3 sm:px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-1 sm:flex-none"
             >
               <span className="hidden sm:inline">Next Week →</span>
               <span className="sm:hidden">Next →</span>
             </button>
             <button
               onClick={handleReset}
-              className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-none"
+              className="tool-command tool-command--danger px-3 sm:px-4 py-2 text-sm sm:text-base flex-1 sm:flex-none"
             >
               <span className="hidden sm:inline">Reset Season</span>
               <span className="sm:hidden">Reset</span>
             </button>
-          </div>
+          </div>}
         </div>
 
         {/* Week Info */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+        <div className="tool-metrics p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
             <div>
               <div className="text-white/70 text-xs sm:text-sm mb-1">Current Week</div>
@@ -401,7 +387,7 @@ export default function SpinTheWheelPage() {
 
         {/* Current Week Result */}
         {currentWeekResult && (
-          <div className="bg-gradient-to-r from-green-600 to-green-500 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center">
+          <div className="tool-feature tool-feature__header p-4 sm:p-6 mb-6 sm:mb-8 text-center">
             <div className="text-white/90 text-xs sm:text-sm mb-2">Week {currentWeekResult.week} Winner Determined By:</div>
             <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white">{currentWeekResult.scenario}</div>
           </div>
@@ -412,10 +398,11 @@ export default function SpinTheWheelPage() {
           <WheelSpinner 
             scenarios={availableScenarios}
             onSpinComplete={handleSpinComplete}
-            canSpin={canSpin}
+            canSpin={canSpin && isAdmin}
+            isAdmin={isAdmin}
           />
         ) : (
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-8 sm:p-12 text-center">
+          <div className="tool-panel p-8 sm:p-12 text-center">
             <div className="text-3xl sm:text-4xl mb-4">🎉</div>
             <div className="text-xl sm:text-2xl font-bold text-white mb-2">Season Complete!</div>
             <div className="text-white/70 text-sm sm:text-base">All scenarios have been used. Reset to start a new season.</div>
@@ -423,7 +410,7 @@ export default function SpinTheWheelPage() {
         )}
 
         {/* Scenario Legend */}
-        <div className="mt-6 sm:mt-8 bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6">
+        <div className="tool-panel mt-6 sm:mt-8 p-4 sm:p-6">
           <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">All Scenarios</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
             {SCENARIOS.map((scenario, index) => {
@@ -451,7 +438,7 @@ export default function SpinTheWheelPage() {
 
         {/* History */}
         {weekResults.length > 0 && (
-          <div className="mt-6 sm:mt-8 bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6">
+          <div className="tool-panel mt-6 sm:mt-8 p-4 sm:p-6">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">History</h2>
             <div className="grid gap-2 sm:gap-3">
               {weekResults.slice().reverse().map((result) => {
@@ -481,7 +468,7 @@ export default function SpinTheWheelPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="mt-2 flex gap-2">
+                      isAdmin ? <div className="mt-2 flex gap-2">
                         <button
                           onClick={() => calculateWinner(result.week, result.scenario)}
                           className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs sm:text-sm transition-colors"
@@ -501,7 +488,7 @@ export default function SpinTheWheelPage() {
                         >
                           ✏️ Add Manually
                         </button>
-                      </div>
+                      </div> : <div className="mt-2 text-white/50 text-xs">Awaiting commissioner result</div>
                     )}
                   </div>
                 );
@@ -512,7 +499,7 @@ export default function SpinTheWheelPage() {
 
         {/* Winners Tab */}
         {weekWinners.length > 0 && (
-          <div className="mt-6 sm:mt-8 bg-gradient-to-r from-yellow-600/20 to-orange-600/20 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-yellow-500/30">
+          <div className="tool-panel mt-6 sm:mt-8 p-4 sm:p-6">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-2xl sm:text-3xl">🏆</span>
               <h2 className="text-xl sm:text-2xl font-bold text-white">Weekly Winners</h2>

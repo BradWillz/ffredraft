@@ -36,23 +36,23 @@ export default function LadbrokesClient({ matchups }: LadbrokesClientProps) {
   return (
     <div>
       {/* Tabs */}
-      <div className="flex border-b border-slate-700">
+      <div className="league-tabs league-tabs__list">
         <button
           onClick={() => setActiveTab('betting')}
-          className={`flex-1 px-6 py-4 text-lg font-bold transition-all ${
+          className={`league-tab ${
             activeTab === 'betting'
-              ? 'bg-slate-900/50 text-white border-b-2 border-emerald-500'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+              ? 'league-tab--active'
+              : 'league-tab--idle'
           }`}
         >
           🎲 Place Bets
         </button>
         <button
           onClick={() => setActiveTab('results')}
-          className={`flex-1 px-6 py-4 text-lg font-bold transition-all ${
+          className={`league-tab ${
             activeTab === 'results'
-              ? 'bg-slate-900/50 text-white border-b-2 border-emerald-500'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+              ? 'league-tab--active'
+              : 'league-tab--idle'
           }`}
         >
           🏆 Results

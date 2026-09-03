@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 
 export const WHEEL_COLORS = [
   '#ef4444', '#f97316', '#f59e0b', '#eab308',
@@ -13,24 +13,17 @@ interface WheelSpinnerProps {
   scenarios: string[];
   onSpinComplete: (scenario: string) => void;
   canSpin: boolean;
+  isAdmin: boolean;
 }
 
-export default function WheelSpinner({ scenarios, onSpinComplete, canSpin }: WheelSpinnerProps) {
+export default function WheelSpinner({ scenarios, onSpinComplete, canSpin, isAdmin }: WheelSpinnerProps) {
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
-  const wheelRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   const handleSpin = () => {
     if (!canSpin || isSpinning || scenarios.length === 0) return;
 
     setIsSpinning(true);
-
-    // Play spinning sound
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(err => console.log('Audio play failed:', err));
-    }
 
     // Random selection
     const selectedIndex = Math.floor(Math.random() * scenarios.length);
@@ -57,9 +50,6 @@ export default function WheelSpinner({ scenarios, onSpinComplete, canSpin }: Whe
 
   return (
     <div className="flex flex-col items-center w-full">
-      {/* Audio element for spinning sound */}
-      <audio ref={audioRef} src="/wheel-spin.mp3" preload="auto" />
-      
       {/* Wheel Container */}
       <div className="relative w-full max-w-[500px] aspect-square mb-8 px-4">
         {/* Pointer */}
@@ -142,8 +132,8 @@ export default function WheelSpinner({ scenarios, onSpinComplete, canSpin }: Whe
       {/* Spin Button */}
       {!canSpin && scenarios.length > 0 && (
         <div className="text-white/70 text-center">
-          <p>This week&apos;s scenario has already been determined.</p>
-          <p className="text-sm mt-1">The wheel will be available again next week.</p>
+          <p>{isAdmin ? 'This week\'s scenario has already been determined.' : 'Commissioner controls this shared wheel.'}</p>
+          <p className="text-sm mt-1">{isAdmin ? 'The wheel will be available again next week.' : 'Results appear here for everyone after each spin.'}</p>
         </div>
       )}
     </div>

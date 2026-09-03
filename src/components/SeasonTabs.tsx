@@ -32,16 +32,16 @@ export default function SeasonTabs({ seasonsData }: SeasonTabsProps) {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Tabs */}
-      <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
-        <div className="flex flex-wrap">
+      <div className="league-tabs">
+        <div className="league-tabs__list">
           {seasonsData.map((seasonData) => (
             <button
               key={seasonData.season}
               onClick={() => setSelectedSeason(seasonData.season)}
-              className={`flex-1 px-3 sm:px-6 md:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold whitespace-nowrap transition-all duration-200 ${
+              className={`league-tab ${
                 selectedSeason === seasonData.season
-                  ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/30"
+                  ? "league-tab--active"
+                  : "league-tab--idle"
               }`}
             >
               {seasonData.season}
@@ -52,9 +52,9 @@ export default function SeasonTabs({ seasonsData }: SeasonTabsProps) {
 
       {/* Selected Season Table */}
       {currentSeasonData && (
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+        <div className="league-panel">
           {/* Season Header */}
-          <div className="bg-gradient-to-r from-purple-600 to-purple-500 px-4 sm:px-6 py-3 sm:py-4">
+          <div className="league-panel__header">
             <h2 className="text-xl sm:text-2xl font-bold text-white">{currentSeasonData.season} Season</h2>
           </div>
 

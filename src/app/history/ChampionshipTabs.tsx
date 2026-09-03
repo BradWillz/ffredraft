@@ -21,24 +21,24 @@ export default function ChampionshipTabs({ history }: ChampionshipTabsProps) {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Tabs */}
-      <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
-        <div className="flex">
+      <div className="league-tabs">
+        <div className="league-tabs__list">
           <button
             onClick={() => setSelectedTab("championship")}
-            className={`flex-1 px-4 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold transition-all duration-200 ${
+            className={`league-tab ${
               selectedTab === "championship"
-                ? "bg-gradient-to-r from-yellow-600 to-yellow-500 text-white"
-                : "text-slate-400 hover:text-white hover:bg-slate-700/30"
+                ? "league-tab--active"
+                : "league-tab--idle"
             }`}
           >
             🏆 Champions
           </button>
           <button
             onClick={() => setSelectedTab("poopBowl")}
-            className={`flex-1 px-4 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold transition-all duration-200 ${
+            className={`league-tab ${
               selectedTab === "poopBowl"
-                ? "bg-gradient-to-r from-amber-700 to-amber-600 text-white"
-                : "text-slate-400 hover:text-white hover:bg-slate-700/30"
+                ? "league-tab--active"
+                : "league-tab--idle"
             }`}
           >
             💩 Poop Bowl

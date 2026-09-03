@@ -157,13 +157,13 @@ export default function CashMoneyPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(250,204,21,0.22),_transparent_30%),linear-gradient(135deg,_#020617_0%,_#111827_55%,_#1f2937_100%)] p-4 sm:p-6 md:p-8">
+    <main className="redraft-tool min-h-screen p-4 sm:p-6 md:p-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <div>
           <HomeButton />
         </div>
 
-        <section className="overflow-hidden rounded-[2rem] border border-amber-400/30 bg-slate-900/70 shadow-2xl backdrop-blur">
+        <section className="tool-feature">
           <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
             <div className="flex flex-col justify-center">
               <p className="mb-3 text-sm font-semibold uppercase tracking-[0.35em] text-amber-300">
@@ -191,7 +191,7 @@ export default function CashMoneyPage() {
               </div>
             </div>
 
-            <div className="rounded-[1.75rem] border border-white/10 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 p-6 shadow-inner">
+            <div className="tool-panel p-6">
               <div className="text-6xl sm:text-7xl">🏆</div>
               <h2 className="mt-4 text-2xl font-semibold text-white">Prize highlights</h2>
               <p className="mt-2 text-sm leading-7 text-slate-400">
@@ -216,7 +216,7 @@ export default function CashMoneyPage() {
             return (
               <div
                 key={prize.id}
-                className={`overflow-hidden rounded-[1.5rem] border p-5 text-left transition-all duration-200 ${
+                className={`tool-panel overflow-hidden p-5 text-left transition-all duration-200 ${
                   isExpanded
                     ? 'border-amber-400/60 bg-slate-800/90 shadow-lg shadow-amber-500/10'
                     : 'border-slate-700 bg-slate-900/60 hover:border-slate-500 hover:bg-slate-800/70'
