@@ -1,0 +1,240 @@
+.vids-page {
+  min-height: calc(100vh - 72px);
+  padding: clamp(40px, 8vw, 80px) max(24px, calc((100vw - 1240px) / 2));
+  background: linear-gradient(
+    180deg,
+    rgba(7, 16, 13, 0.8) 0%,
+    rgba(7, 16, 13, 0.95) 50%,
+    rgba(7, 16, 13, 1) 100%
+  );
+}
+
+.vids-header {
+  margin-bottom: clamp(48px, 8vw, 80px);
+}
+
+.vids-title {
+  margin-top: 24px;
+}
+
+.vids-title h1 {
+  font-size: clamp(42px, 8vw, 72px);
+  line-height: 0.9;
+  margin: 16px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+}
+
+.vids-subtitle {
+  margin: 16px 0 0;
+  color: #a9b2aa;
+  font-size: clamp(16px, 2vw, 18px);
+  line-height: 1.5;
+  max-width: 720px;
+}
+
+.vids-section {
+  margin-top: clamp(48px, 8vw, 80px);
+}
+
+.vids-container {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(48px, 6vw, 72px);
+}
+
+/* Video Card Styles */
+.video-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(24px, 4vw, 40px);
+  align-items: start;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@media (min-width: 968px) {
+  .video-card {
+    grid-template-columns: 1.4fr 0.6fr;
+    gap: clamp(40px, 4vw, 60px);
+  }
+
+  .video-card:nth-child(even) {
+    grid-template-columns: 0.6fr 1.4fr;
+  }
+
+  .video-card:nth-child(even) .video-card__embed {
+    order: 2;
+  }
+
+  .video-card:nth-child(even) .video-card__content {
+    order: 1;
+  }
+}
+
+.video-card__embed {
+  position: relative;
+}
+
+.video-embed {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  background: rgba(7, 16, 13, 0.8);
+  border: 1px solid rgba(231, 238, 226, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22), 0 0 80px rgba(200, 241, 53, 0.06);
+}
+
+.video-embed__frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.video-card__content {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.video-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.video-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border: 1px solid rgba(231, 238, 226, 0.15);
+}
+
+.video-badge--presser {
+  background: rgba(200, 241, 53, 0.12);
+  color: #c8f135;
+  border-color: rgba(200, 241, 53, 0.3);
+}
+
+.video-badge--highlight {
+  background: rgba(255, 107, 53, 0.12);
+  color: #ff6b35;
+  border-color: rgba(255, 107, 53, 0.3);
+}
+
+.video-badge--analysis {
+  background: rgba(255, 200, 87, 0.12);
+  color: #ffc857;
+  border-color: rgba(255, 200, 87, 0.3);
+}
+
+.video-badge--update {
+  background: rgba(200, 241, 53, 0.08);
+  color: #a9b2aa;
+  border-color: rgba(231, 238, 226, 0.15);
+}
+
+.video-badge--draft {
+  background: rgba(255, 107, 53, 0.08);
+  color: #a9b2aa;
+  border-color: rgba(231, 238, 226, 0.15);
+}
+
+.video-card__date {
+  color: #a9b2aa;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.video-card__title {
+  margin: 8px 0;
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+  color: #f7f4ea;
+}
+
+.video-card__description {
+  margin: 0;
+  color: #cbd3cd;
+  font-size: clamp(15px, 2vw, 17px);
+  line-height: 1.65;
+  max-width: 100%;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .vids-page {
+    padding: clamp(32px, 6vw, 48px) max(16px, calc((100vw - 100%) / 2));
+  }
+
+  .vids-title h1 {
+    font-size: 48px;
+  }
+
+  .video-card {
+    grid-template-columns: 1fr;
+  }
+
+  .video-card__title {
+    font-size: 24px;
+  }
+}
+
+/* Dark mode accent lines */
+.vids-section::before {
+  content: "";
+  display: block;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--lime) 0%,
+    var(--orange) 50%,
+    var(--gold) 100%
+  );
+  margin-bottom: clamp(40px, 6vw, 60px);
+  opacity: 0.3;
+}
+
+/* Video card hover effect */
+.video-card__embed {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.video-card:hover .video-card__embed {
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3), 0 0 120px rgba(200, 241, 53, 0.12) !important;
+}
+
+.video-embed {
+  transition: border-color 0.3s ease;
+}
+
+.video-card:hover .video-embed {
+  border-color: rgba(200, 241, 53, 0.3);
+}

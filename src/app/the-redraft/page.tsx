@@ -67,6 +67,12 @@ export default function TheRedraftPage() {
       description: "Season prize board and weekly payouts",
       href: "/the-redraft/cash-money",
       label: "Payouts",
+    },
+    {
+      title: "Vids",
+      description: "Season highlights, pressers, and exclusive content",
+      href: "/the-redraft/vids",
+      label: "Highlights",
     }
   ];
 
