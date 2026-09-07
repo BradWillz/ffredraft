@@ -18,7 +18,7 @@ const videos: VideoItem[] = [
     description: "The kickff presser to launch the 2026 season. Strap in pipsqueaks.",
     date: "2026-09-06",
     type: "Presser",
-    youtubeId: "lVgsygx5mGI",
+    youtubeId: "8hEb1NbE9JM",
     season: 2026,
   },
 ];
