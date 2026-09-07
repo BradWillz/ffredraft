@@ -3,10 +3,10 @@
 import { useState } from 'react';
 
 export const WHEEL_COLORS = [
-  '#ef4444', '#f97316', '#f59e0b', '#eab308',
-  '#84cc16', '#22c55e', '#10b981', '#14b8a6',
-  '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
-  '#8b5cf6', '#a855f7'
+  '#c8f135', '#ff6b35', '#ffc857', '#4d8f58',
+  '#b64c2e', '#a77b27', '#78a819', '#9c3d2b',
+  '#d4a93a', '#2b6248', '#e27f39', '#779725',
+  '#81402b', '#c59832'
 ];
 
 interface WheelSpinnerProps {
@@ -49,12 +49,27 @@ export default function WheelSpinner({ scenarios, onSpinComplete, canSpin, isAdm
   const segmentAngle = 360 / scenarios.length;
 
   return (
-    <div className="flex flex-col items-center w-full">
-      {/* Wheel Container */}
-      <div className="relative w-full max-w-[500px] aspect-square mb-8 px-4">
+    <section className="wheel-stage" aria-label="Scenario wheel">
+      <div className="wheel-stage__rail" aria-hidden="true">
+        <span>Scenario Selector</span>
+        <span>Week {scenarios.length > 0 ? 'Live' : 'Complete'}</span>
+      </div>
+      <div className="wheel-stage__body">
+        <div className="wheel-stage__copy">
+          <p className="eyebrow">Commissioner&apos;s Call</p>
+          <h2>Spin. That. Wheel.</h2>
+          <p>One weekly scenario decides the chase. The wheel only gives each scenario one shot at glory.</p>
+          <div className="wheel-stage__key" aria-label="Wheel color key">
+            <span><i className="wheel-stage__dot wheel-stage__dot--lime" /> In play</span>
+            <span><i className="wheel-stage__dot wheel-stage__dot--orange" /> One spin only</span>
+          </div>
+        </div>
+
+        {/* Wheel Container */}
+        <div className="wheel-stage__wheel relative w-full max-w-[500px] aspect-square px-4">
         {/* Pointer */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 sm:-translate-y-4 z-10">
-          <div className="w-0 h-0 border-l-[12px] sm:border-l-[20px] border-l-transparent border-r-[12px] sm:border-r-[20px] border-r-transparent border-t-[18px] sm:border-t-[30px] border-t-yellow-400 drop-shadow-lg" />
+        <div className="wheel-stage__pointer absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 sm:-translate-y-4 z-10" aria-hidden="true">
+          <div className="w-0 h-0 border-l-[12px] sm:border-l-[20px] border-l-transparent border-r-[12px] sm:border-r-[20px] border-r-transparent border-t-[18px] sm:border-t-[30px]" />
         </div>
 
         {/* Wheel SVG */}
@@ -62,7 +77,7 @@ export default function WheelSpinner({ scenarios, onSpinComplete, canSpin, isAdm
           width="100%" 
           height="100%" 
           viewBox="0 0 500 500"
-          className="rounded-full shadow-2xl"
+          className="wheel-stage__svg rounded-full"
           style={{
             transform: `rotate(${rotation}deg)`,
             transition: isSpinning ? 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none'
@@ -95,13 +110,13 @@ export default function WheelSpinner({ scenarios, onSpinComplete, canSpin, isAdm
                 <path
                   d={pathData}
                   fill={WHEEL_COLORS[index % WHEEL_COLORS.length]}
-                  stroke="white"
-                  strokeWidth="2"
+                  stroke="#07100d"
+                  strokeWidth="3"
                 />
                 <text
                   x={textX}
                   y={textY}
-                  fill="white"
+                  fill="#07100d"
                   fontSize="28"
                   fontWeight="bold"
                   textAnchor="middle"
@@ -114,7 +129,7 @@ export default function WheelSpinner({ scenarios, onSpinComplete, canSpin, isAdm
             );
           })}
           
-          <circle cx="250" cy="250" r="40" fill="white" stroke="#333" strokeWidth="3" />
+          <circle cx="250" cy="250" r="42" fill="#f7f4ea" stroke="#07100d" strokeWidth="5" />
         </svg>
 
         {/* Center button overlay */}
@@ -122,20 +137,21 @@ export default function WheelSpinner({ scenarios, onSpinComplete, canSpin, isAdm
           <button
             onClick={handleSpin}
             disabled={!canSpin || isSpinning}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white border-3 sm:border-4 border-gray-800 font-bold text-gray-800 text-base sm:text-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-110 active:scale-95 shadow-xl"
+            className="wheel-stage__spin w-16 h-16 sm:w-20 sm:h-20 rounded-full font-bold text-base sm:text-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-110 active:scale-95"
           >
             {isSpinning ? '...' : 'SPIN'}
           </button>
+        </div>
         </div>
       </div>
 
       {/* Spin Button */}
       {!canSpin && scenarios.length > 0 && (
-        <div className="text-white/70 text-center">
+        <div className="wheel-stage__notice">
           <p>{isAdmin ? 'This week\'s scenario has already been determined.' : 'Commissioner controls this shared wheel.'}</p>
           <p className="text-sm mt-1">{isAdmin ? 'The wheel will be available again next week.' : 'Results appear here for everyone after each spin.'}</p>
         </div>
       )}
-    </div>
+    </section>
   );
 }

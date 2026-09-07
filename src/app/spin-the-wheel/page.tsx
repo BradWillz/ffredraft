@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import WheelSpinner, { WHEEL_COLORS } from './WheelSpinner';
 import { getLeagueMatchups, getLeagueRosters, getLeagueUsers } from '@/lib/sleeper';
@@ -32,9 +32,23 @@ export default function SpinTheWheelPage() {
   const [isClient, setIsClient] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showWinnersTab, setShowWinnersTab] = useState(false);
+  const hasPlayedIntro = useRef(false);
+
+  const playWheelIntro = () => {
+    if (hasPlayedIntro.current || !('speechSynthesis' in window)) return;
+
+    hasPlayedIntro.current = true;
+    window.speechSynthesis.cancel();
+    const announcement = new SpeechSynthesisUtterance('Spin! That! Wheel!');
+    announcement.rate = 0.84;
+    announcement.pitch = 0.82;
+    announcement.volume = 1;
+    window.speechSynthesis.speak(announcement);
+  };
 
   useEffect(() => {
     setIsClient(true);
+    playWheelIntro();
     Promise.all([
       fetch('/api/wheel', { cache: 'no-store' }).then(response => response.json()),
       fetch('/api/admin/session', { cache: 'no-store' }).then(response => response.json()),
@@ -323,7 +337,7 @@ export default function SpinTheWheelPage() {
             >
               ← Back
             </Link>
-            <h1 className="text-4xl font-bold text-white">🎡 Spin the Wheel</h1>
+            <h1 className="text-4xl font-bold text-white">Spin the Wheel</h1>
           </div>
           <div className="text-white text-center">Loading...</div>
         </div>
@@ -346,9 +360,23 @@ export default function SpinTheWheelPage() {
             >
               ← Back
             </Link>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">🎡 Spin the Wheel</h1>
+            <div>
+              <p className="eyebrow mb-2">Fourth &amp; Forever</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">Spin the Wheel</h1>
+            </div>
           </div>
-          {isAdmin && <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+          <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => {
+                hasPlayedIntro.current = false;
+                playWheelIntro();
+              }}
+              className="wheel-audio-control px-3 sm:px-4 py-2 text-sm sm:text-base flex-1 sm:flex-none"
+              aria-label="Replay Spin That Wheel announcement"
+            >
+              Replay intro
+            </button>
+            {isAdmin && <>
             <button
               onClick={handleNextWeek}
               disabled={currentWeek >= 14}
@@ -364,7 +392,8 @@ export default function SpinTheWheelPage() {
               <span className="hidden sm:inline">Reset Season</span>
               <span className="sm:hidden">Reset</span>
             </button>
-          </div>}
+            </>}
+          </div>
         </div>
 
         {/* Week Info */}

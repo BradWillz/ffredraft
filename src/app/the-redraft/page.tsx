@@ -73,6 +73,12 @@ export default function TheRedraftPage() {
       description: "Season highlights, pressers, and exclusive content",
       href: "/the-redraft/vids",
       label: "Highlights",
+    },
+    {
+      title: "Lowest Scorer: Step Up",
+      description: "The weekly dance-forfeit tracker and evidence locker",
+      href: "/the-redraft/lowest-scorer",
+      label: "Dance floor",
     }
   ];
 
