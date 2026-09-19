@@ -1,10 +1,12 @@
 import { sharedDelete, sharedGet, sharedSet } from "./shared-store";
 
 export const WHEEL_STATE_KEY = "redraft:2026:wheel";
+export const WHEEL_STATE_VERSION = 2;
 
 export type WheelResult = { week: number; scenario: string; date: string };
 export type WheelWinner = { week: number; scenario: string; winnerName: string; winnerValue: number; details: string };
 export type WheelState = {
+  version: number;
   currentWeek: number;
   availableScenarios: string[];
   weekResults: WheelResult[];
@@ -20,6 +22,7 @@ export const WHEEL_SCENARIOS = [
 ];
 
 export const DEFAULT_WHEEL_STATE: WheelState = {
+  version: WHEEL_STATE_VERSION,
   currentWeek: 1,
   availableScenarios: WHEEL_SCENARIOS,
   weekResults: [],
@@ -27,7 +30,21 @@ export const DEFAULT_WHEEL_STATE: WheelState = {
 };
 
 export async function getWheelState() {
-  return (await sharedGet<WheelState>(WHEEL_STATE_KEY)) ?? DEFAULT_WHEEL_STATE;
+  const state = await sharedGet<WheelState>(WHEEL_STATE_KEY);
+  if (!state) return DEFAULT_WHEEL_STATE;
+  if (state.version === WHEEL_STATE_VERSION) return state;
+
+  const latestRecordedWeek = state.weekResults.reduce(
+    (latest, result) => Math.max(latest, result.week),
+    1,
+  );
+  const migratedState = {
+    ...state,
+    version: WHEEL_STATE_VERSION,
+    currentWeek: state.weekResults.length > 0 ? latestRecordedWeek : state.currentWeek,
+  };
+  await setWheelState(migratedState);
+  return migratedState;
 }
 
 export async function setWheelState(state: WheelState) {

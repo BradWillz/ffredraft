@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
-import { getWheelState, resetWheelState, setWheelState, type WheelState } from "@/lib/wheel-state";
+import { getWheelState, resetWheelState, setWheelState, WHEEL_STATE_VERSION, type WheelState } from "@/lib/wheel-state";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +14,9 @@ export async function PUT(request: Request) {
   if (!Number.isInteger(state.currentWeek) || !Array.isArray(state.availableScenarios) || !Array.isArray(state.weekResults) || !Array.isArray(state.weekWinners)) {
     return NextResponse.json({ error: "Invalid wheel state" }, { status: 400 });
   }
-  await setWheelState(state);
-  return NextResponse.json(state);
+  const updatedState = { ...state, version: WHEEL_STATE_VERSION };
+  await setWheelState(updatedState);
+  return NextResponse.json(updatedState);
 }
 
 export async function DELETE() {
