@@ -51,6 +51,7 @@ export type WeeklyReport = {
   leagueName: string;
   season: string;
   week: number;
+  lastCompletedWeek: number;
 
   generatedAt: string;
   matchups: Array<{ id: number; team1: ReportTeam; team2: ReportTeam; margin: number }>;
@@ -313,6 +314,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
     leagueName: league.name ?? "Left, Down, Wide to the Right, Up",
     season: league.season,
     week,
+    lastCompletedWeek: Number(league.settings?.last_scored_leg ?? 0),
     generatedAt: new Date().toISOString(),
     matchups: reportMatchups,
     standings: [...teams].sort((left, right) => right.seasonWins - left.seasonWins || right.seasonPoints - left.seasonPoints),

@@ -25,6 +25,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
   const week = Number((await params).week);
   if (!Number.isInteger(week) || week < 1 || week > 18) notFound();
   const report = await getWeeklyReport(week);
+  if (week > report.lastCompletedWeek) notFound();
   const headlineMargin = report.highestScorer.score - report.highestScorer.opponentScore;
 
   return (
@@ -34,6 +35,18 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
         <span>Email preview</span>
         <PrintReportButton />
       </div>
+      <nav className={styles.weekTabs} aria-label="Newsletter weeks">
+        {Array.from({ length: report.lastCompletedWeek }, (_, index) => index + 1).map((availableWeek) => (
+          <Link
+            key={availableWeek}
+            href={`/newsletter/week/${availableWeek}`}
+            aria-current={availableWeek === week ? "page" : undefined}
+            className={availableWeek === week ? styles.weekTabActive : styles.weekTab}
+          >
+            Week {availableWeek}
+          </Link>
+        ))}
+      </nav>
 
       <article className={styles.report}>
         <header className={styles.masthead}>

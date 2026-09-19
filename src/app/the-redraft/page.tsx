@@ -21,6 +21,12 @@ export default function TheRedraftPage() {
       label: "Scoreboard",
     },
     {
+      title: "Weekly Newsletter",
+      description: "Matchup stories, power rankings, and league awards",
+      href: "/newsletter",
+      label: "League dispatch",
+    },
+    {
       title: "Player High Scores",
       description: "Best individual player performances",
       href: "/player-high-scores",

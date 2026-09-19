@@ -2,6 +2,10 @@
 .toolbar { width: min(100%, 820px); margin: 0 auto 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #b9c3be; font: 700 13px/1 var(--font-display); text-transform: uppercase; }
 .toolbar a { color: #c8f135; text-decoration: none; }
 .toolbar button, :global(.newsletter-print-button) { padding: 11px 15px; color: #07100d; border: 0; border-radius: 3px; background: #c8f135; font: 800 13px/1 var(--font-display); text-transform: uppercase; cursor: pointer; }
+.weekTabs { width: min(100%, 820px); margin: 0 auto 12px; display: flex; overflow-x: auto; border: 1px solid #294037; background: #0e1c16; }
+.weekTab, .weekTabActive { min-width: 84px; padding: 13px 16px; color: #91a198; border-right: 1px solid #294037; font: 800 13px/1 var(--font-display); text-align: center; text-decoration: none; text-transform: uppercase; white-space: nowrap; }
+.weekTab:hover { color: #f7f4ea; background: #162a21; }
+.weekTabActive { color: #07100d; background: #c8f135; }
 .report { width: min(100%, 820px); margin: auto; overflow: hidden; background: #0e1c16; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
 .masthead { padding: 38px 42px 42px; color: #f7f4ea; background: linear-gradient(125deg,#0a1914 0 68%,#183c2d 68%); border-bottom: 7px solid #c8f135; }
 .brandRow { display: flex; align-items: center; gap: 13px; padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,.2); }
@@ -101,7 +105,7 @@
 .footer small { grid-column: 1 / -1; color: #78877f; font-size: 10px; line-height: 1.4; }
 
 @media (max-width: 640px) {
-  .shell { padding: 0; }.toolbar { padding: 14px; margin: 0; }.toolbar > span { display: none; }
+  .shell { padding: 0; }.toolbar { padding: 14px; margin: 0; }.toolbar > span { display: none; }.weekTabs { margin: 0; border-inline: 0; }
   .masthead, .section { padding: 28px 20px; }.masthead h1 { font-size: 48px; }.brandRow span { display: none; }
   .heroStat { grid-template-columns: auto 1fr; }.heroStat > b { grid-column: 2; font-size: 28px; }
   .metricStrip, .features, .sideQuests, .scoreboard { grid-template-columns: 1fr; }
@@ -114,7 +118,7 @@
 }
 
 @media print {
-  :global(.site-header), .toolbar { display: none !important; }
+  :global(.site-header), .toolbar, .weekTabs { display: none !important; }
   .shell { padding: 0; background: white; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .report { width: 100%; box-shadow: none; }
   .pageBreak { break-before: page; }
