@@ -137,16 +137,69 @@ function weeklyPowerIndexes(matchups: SleeperMatchup[]) {
   })).sort((left, right) => right.powerIndex - left.powerIndex);
 }
 
-function teamBlurb(team: ReportTeam, scoreRank: number, teamCount: number) {
-  if (scoreRank === 1 && team.lineupEfficiency < 75) return `Top score, but only ${team.lineupEfficiency.toFixed(0)}% lineup efficiency. Brilliant result, untidy management.`;
-  if (scoreRank === teamCount) return `${team.score.toFixed(2)} points and dead last in scoring. The lineup submitted a formal request for competent supervision.`;
-  if (team.won && team.allPlayWins < teamCount / 2) return `Won the matchup while losing to most of the league. The schedule supplied the competence this roster did not.`;
-  if (!team.won && team.allPlayWins >= teamCount / 2) return `${team.score.toFixed(2)} would have beaten plenty. Unfortunately, fantasy awards no points for being unlucky with dignity.`;
-  if (team.lineupEfficiency < 72) return `${team.benchPoints.toFixed(2)} bench points and ${team.lineupEfficiency.toFixed(0)}% efficiency. A tactical masterclass in watching points from the sideline.`;
-  if (team.margin <= -30) return `Lost by ${Math.abs(team.margin).toFixed(2)}. This stopped being a matchup and became evidence.`;
-  if (team.margin >= 30) return `A ${team.margin.toFixed(2)}-point win. Impressive, although the opponent offered roughly the resistance of an unlocked gate.`;
-  if (team.won) return `Banked the win without frightening the league. Efficient enough, memorable only to the standings table.`;
-  return `A respectable score converted into absolutely nothing. Good process, terrible reward, no sympathy.`;
+function teamBlurb(team: ReportTeam, scoreRank: number, teamCount: number, usedBlurbs: Set<string>) {
+  const choose = (variants: string[]) => {
+    const unused = variants.find((variant) => !usedBlurbs.has(variant));
+    const blurb = unused ?? variants[0];
+    usedBlurbs.add(blurb);
+    return blurb;
+  };
+
+  if (scoreRank === 1 && team.lineupEfficiency < 75) {
+    return choose([
+      `Top score, but only ${team.lineupEfficiency.toFixed(0)}% lineup efficiency. Brilliant result, untidy management.`,
+      `Led the league while leaving ${team.lineupEfficiency.toFixed(0)}% of the available points behind. Dominant score, negligent stewardship.`,
+    ]);
+  }
+  if (scoreRank === teamCount) {
+    return choose([
+      `${team.score.toFixed(2)} points and dead last in scoring. The lineup submitted a formal request for competent supervision.`,
+      `${team.score.toFixed(2)} points, bottom of the pile, and not a credible alibi in sight. The roster was managed as a public service announcement.`,
+    ]);
+  }
+  if (team.won && team.allPlayWins < teamCount / 2) {
+    return choose([
+      `Won the matchup while losing to most of the league. The schedule supplied the competence this roster did not.`,
+      `Escaped with a win despite losing to most of the league. A victory manufactured by fixture luck and little else.`,
+    ]);
+  }
+  if (!team.won && team.allPlayWins >= teamCount / 2) {
+    return choose([
+      `${team.score.toFixed(2)} would have beaten plenty. Unfortunately, fantasy awards no points for being unlucky with dignity.`,
+      `Scored enough to make most of the league uncomfortable, then lost to the one team that mattered. Brutal, but not entirely undeserved.`,
+    ]);
+  }
+  if (team.lineupEfficiency < 72) {
+    return choose([
+      `${team.benchPoints.toFixed(2)} bench points and ${team.lineupEfficiency.toFixed(0)}% efficiency. A tactical masterclass in watching points from the sideline.`,
+      `Left ${team.benchPoints.toFixed(2)} points marooned on the bench at ${team.lineupEfficiency.toFixed(0)}% efficiency. The lineup was less a decision than a confession.`,
+      `${team.lineupEfficiency.toFixed(0)}% efficiency and ${team.benchPoints.toFixed(2)} points unused. The bench put on a better show than the manager.`,
+    ]);
+  }
+  if (team.margin <= -30) {
+    return choose([
+      `Lost by ${Math.abs(team.margin).toFixed(2)}. This stopped being a matchup and became evidence.`,
+      `Defeated by ${Math.abs(team.margin).toFixed(2)} points. Calling this a loss gives the performance far too much dignity.`,
+    ]);
+  }
+  if (team.margin >= 30) {
+    return choose([
+      `A ${team.margin.toFixed(2)}-point win. Impressive, although the opponent offered roughly the resistance of an unlocked gate.`,
+      `Won by ${team.margin.toFixed(2)} points. A convincing demolition, assisted by an opponent who appeared to have misplaced the concept of resistance.`,
+    ]);
+  }
+  if (team.won) {
+    return choose([
+      `Banked the win without frightening the league. Efficient enough, memorable only to the standings table.`,
+      `Collected the win and immediately lowered the league's expectations. Functional, forgettable, and technically successful.`,
+      `Won by doing just enough to avoid embarrassment. The standings will remember this longer than anyone else will.`,
+    ]);
+  }
+  return choose([
+    `A respectable score converted into absolutely nothing. Good process, terrible reward, no sympathy.`,
+    `Played well enough to deserve better and still found a way to leave empty-handed. Sympathy remains unavailable.`,
+    `The points were respectable; the result was not. A perfectly competent effort ruined by the small detail of losing.`,
+  ]);
 }
 
 export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
@@ -241,6 +294,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
     .sort((left, right) => (currentIndexes.get(right.rosterId) ?? 0) - (currentIndexes.get(left.rosterId) ?? 0))
     .map((team) => team.rosterId);
   const scoreRanks = new Map([...rawTeams].sort((left, right) => right.score - left.score).map((team, index) => [team.rosterId, index + 1]));
+  const usedBlurbs = new Set<string>();
   const teams = rawTeams.map((team) => {
     const currentRank = rankedRosterIds.indexOf(team.rosterId) + 1;
     const previousRank = previousRanks.get(team.rosterId);
@@ -249,7 +303,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       powerIndex: currentIndexes.get(team.rosterId) ?? 0,
       rankMovement: previousRank == null ? null : previousRank - currentRank,
     };
-    return { ...rankedTeam, blurb: teamBlurb(rankedTeam, scoreRanks.get(team.rosterId) ?? rawTeams.length, rawTeams.length) };
+    return { ...rankedTeam, blurb: teamBlurb(rankedTeam, scoreRanks.get(team.rosterId) ?? rawTeams.length, rawTeams.length, usedBlurbs) };
   });
   const teamsByRoster = new Map(teams.map((team) => [team.rosterId, team]));
   const grouped = new Map<number, SleeperMatchup[]>();
