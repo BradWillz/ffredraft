@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { FormEvent, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import WheelSpinner, { WHEEL_COLORS } from './WheelSpinner';
 import { getLeagueMatchups, getLeagueRosters, getLeagueUsers } from '@/lib/sleeper';
@@ -32,6 +32,11 @@ export default function SpinTheWheelPage() {
   const [isClient, setIsClient] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showWinnersTab, setShowWinnersTab] = useState(false);
+  const [editWeek, setEditWeek] = useState(1);
+  const [editScenario, setEditScenario] = useState('Highest Bench Score');
+  const [editWinner, setEditWinner] = useState('Tee');
+  const [editDetails, setEditDetails] = useState('Highest points on bench');
+  const [editStatus, setEditStatus] = useState('');
   const hasPlayedIntro = useRef(false);
 
   const playWheelIntro = () => {
@@ -108,6 +113,57 @@ export default function SpinTheWheelPage() {
     const updatedWinners = [...weekWinners.filter(w => w.week !== week), newWinner].sort((a, b) => a.week - b.week);
     setWeekWinners(updatedWinners);
     void saveWheelState({ currentWeek, availableScenarios, weekResults, weekWinners: updatedWinners });
+  };
+
+  const handleEditWeek = (week: number) => {
+    const result = weekResults.find(item => item.week === week);
+    const winner = weekWinners.find(item => item.week === week);
+    setEditWeek(week);
+    setEditScenario(result?.scenario || SCENARIOS[0]);
+    setEditWinner(winner?.winnerName || '');
+    setEditDetails(winner?.details || '');
+    setEditStatus('');
+  };
+
+  const handleSaveWeek = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setEditStatus('Saving...');
+
+    const existingResult = weekResults.find(result => result.week === editWeek);
+    const updatedResults = [
+      ...weekResults.filter(result => result.week !== editWeek),
+      { week: editWeek, scenario: editScenario, date: existingResult?.date || new Date().toISOString() },
+    ].sort((a, b) => a.week - b.week);
+    const updatedWinners = [
+      ...weekWinners.filter(winner => winner.week !== editWeek),
+      {
+        week: editWeek,
+        scenario: editScenario,
+        winnerName: editWinner.trim(),
+        winnerValue: 0,
+        details: editDetails.trim(),
+      },
+    ].sort((a, b) => a.week - b.week);
+    const usedScenarios = new Set(updatedResults.map(result => result.scenario));
+    const updatedAvailable = SCENARIOS.filter(scenario => !usedScenarios.has(scenario));
+    const updatedCurrentWeek = Math.max(currentWeek, editWeek + 1);
+    const response = await saveWheelState({
+      currentWeek: updatedCurrentWeek,
+      availableScenarios: updatedAvailable,
+      weekResults: updatedResults,
+      weekWinners: updatedWinners,
+    });
+
+    if (!response.ok) {
+      setEditStatus('Could not save this result. Please try again.');
+      return;
+    }
+
+    setCurrentWeek(updatedCurrentWeek);
+    setAvailableScenarios(updatedAvailable);
+    setWeekResults(updatedResults);
+    setWeekWinners(updatedWinners);
+    setEditStatus(`Week ${editWeek} saved.`);
   };
 
   const calculateWinner = async (week: number, scenario: string) => {
@@ -436,6 +492,61 @@ export default function SpinTheWheelPage() {
             <div className="text-xl sm:text-2xl font-bold text-white mb-2">Season Complete!</div>
             <div className="text-white/70 text-sm sm:text-base">All scenarios have been used. Reset to start a new season.</div>
           </div>
+        )}
+
+        {isAdmin && (
+          <section className="tool-panel mt-6 sm:mt-8 p-4 sm:p-6" aria-labelledby="week-editor-title">
+            <p className="eyebrow">Commissioner tools</p>
+            <h2 id="week-editor-title" className="text-xl sm:text-2xl font-bold text-white mb-2">Edit a Previous Week</h2>
+            <p className="text-white/70 text-sm mb-5">Select the scenario and winner to add a missed result or correct an existing one.</p>
+            <form onSubmit={handleSaveWeek} className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2 text-sm font-bold text-white">
+                Week
+                <select
+                  value={editWeek}
+                  onChange={(event) => handleEditWeek(Number(event.target.value))}
+                  className="wheel-admin-field"
+                >
+                  {Array.from({ length: 14 }, (_, index) => index + 1).map(week => (
+                    <option key={week} value={week}>Week {week}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-white">
+                Scenario
+                <select
+                  value={editScenario}
+                  onChange={(event) => setEditScenario(event.target.value)}
+                  className="wheel-admin-field"
+                >
+                  {SCENARIOS.map(scenario => <option key={scenario} value={scenario}>{scenario}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-white">
+                Winner
+                <input
+                  value={editWinner}
+                  onChange={(event) => setEditWinner(event.target.value)}
+                  className="wheel-admin-field"
+                  required
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-white">
+                Result details
+                <input
+                  value={editDetails}
+                  onChange={(event) => setEditDetails(event.target.value)}
+                  className="wheel-admin-field"
+                  placeholder="e.g. 68.4 bench pts"
+                  required
+                />
+              </label>
+              <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+                <button type="submit" className="tool-command px-5 py-3">Save week result</button>
+                {editStatus && <p className="text-sm text-white/70" role="status">{editStatus}</p>}
+              </div>
+            </form>
+          </section>
         )}
 
         {/* Scenario Legend */}
