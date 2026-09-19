@@ -15,6 +15,7 @@ export async function GET() {
     rosterId: submission.rosterId,
     displayName: context.owners.find((owner) => owner.rosterId === submission.rosterId)?.displayName ?? `Team ${submission.rosterId}`,
     picks: submission.picks,
+    tiebreakers: submission.tiebreakers,
   })) : null;
   return NextResponse.json({
     week: context.week,
@@ -22,6 +23,7 @@ export async function GET() {
     lockDeadline: context.lockDeadline,
     picksLocked: context.picksLocked,
     matchups: context.matchups,
+    owners: context.owners,
     user: session ? context.owners.find((owner) => owner.rosterId === session.rosterId) ?? null : null,
     ownSubmission: ownSubmission ?? null,
     revealedPicks,
@@ -36,16 +38,29 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const context = await getLadbrokesContext();
   if (context.picksLocked) return NextResponse.json({ error: "Picks are locked for this week" }, { status: 423 });
-  const body = await request.json() as { week?: number; picks?: Record<string, number> };
+  const body = await request.json() as { week?: number; picks?: Record<string, number>; tiebreakers?: LadbrokesSubmission["tiebreakers"] };
   if (body.week !== context.week || !body.picks) return NextResponse.json({ error: "Invalid or expired week" }, { status: 400 });
   const valid = context.matchups.length > 0 && context.matchups.every((matchup) => {
     const pick = body.picks?.[String(matchup.id)];
     return pick === matchup.team1.rosterId || pick === matchup.team2.rosterId;
   }) && Object.keys(body.picks).length === context.matchups.length;
   if (!valid) return NextResponse.json({ error: "Every matchup requires one valid pick" }, { status: 400 });
+  const validRosterIds = new Set(context.owners.map((owner) => owner.rosterId));
+  const validTiebreakers = body.tiebreakers
+    && validRosterIds.has(body.tiebreakers.highestScorerRosterId)
+    && validRosterIds.has(body.tiebreakers.lowestScorerRosterId)
+    && body.tiebreakers.highestScorerRosterId !== body.tiebreakers.lowestScorerRosterId;
+  if (context.week >= 3 && !validTiebreakers) {
+    return NextResponse.json({ error: "Choose different managers for highest and lowest scorer" }, { status: 400 });
+  }
   const submissions = await getLadbrokesSubmissions(context.week);
   if (submissions.some((item) => item.rosterId === session.rosterId)) return NextResponse.json({ error: "Picks are already locked" }, { status: 409 });
-  const submission: LadbrokesSubmission = { rosterId: session.rosterId, picks: body.picks, lockedAt: new Date().toISOString() };
+  const submission: LadbrokesSubmission = {
+    rosterId: session.rosterId,
+    picks: body.picks,
+    ...(context.week >= 3 && body.tiebreakers ? { tiebreakers: body.tiebreakers } : {}),
+    lockedAt: new Date().toISOString(),
+  };
   await saveLadbrokesSubmissions(context.week, [...submissions, submission]);
   return NextResponse.json({ locked: true, ownSubmission: submission });
 }

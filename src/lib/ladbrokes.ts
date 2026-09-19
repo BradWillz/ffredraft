@@ -25,13 +25,17 @@ export type LadbrokesMatchup = {
 export type LadbrokesSubmission = {
   rosterId: number;
   picks: Record<string, number>;
+  tiebreakers?: {
+    highestScorerRosterId: number;
+    lowestScorerRosterId: number;
+  };
   lockedAt: string;
 };
 
 export type LadbrokesWeeklyResult = {
   week: number;
-  winners: Array<{ rosterId: number; displayName: string; correct: number }>;
-  standings: Array<{ rosterId: number; displayName: string; correct: number; total: number }>;
+  winners: Array<{ rosterId: number; displayName: string; correct: number; tiebreakCorrect: number }>;
+  standings: Array<{ rosterId: number; displayName: string; correct: number; total: number; tiebreakCorrect: number }>;
 };
 
 type AccessRecord = { rosterId: number; ownerId: string; codeHash: string };
@@ -175,17 +179,28 @@ export function scoreLadbrokesWeek(week: number, rawMatchups: SleeperMatchup[], 
       winnersByMatchup.set(matchupId, team1.points > team2.points ? team1.roster_id : team2.roster_id);
     }
   }
+  const completedScores = rawMatchups.filter((matchup) => matchup.points != null);
+  const highestScore = Math.max(...completedScores.map((matchup) => matchup.points!));
+  const lowestScore = Math.min(...completedScores.map((matchup) => matchup.points!));
+  const highestScorers = new Set(completedScores.filter((matchup) => matchup.points === highestScore).map((matchup) => matchup.roster_id));
+  const lowestScorers = new Set(completedScores.filter((matchup) => matchup.points === lowestScore).map((matchup) => matchup.roster_id));
   const standings = submissions.map((submission) => ({
     rosterId: submission.rosterId,
     displayName: ownersByRoster.get(submission.rosterId)?.displayName ?? `Team ${submission.rosterId}`,
     correct: Array.from(winnersByMatchup).filter(([matchupId, winner]) => winner != null && submission.picks[String(matchupId)] === winner).length,
     total: winnersByMatchup.size,
-  })).sort((left, right) => right.correct - left.correct || left.displayName.localeCompare(right.displayName));
+    tiebreakCorrect: week >= 3 && submission.tiebreakers
+      ? Number(highestScorers.has(submission.tiebreakers.highestScorerRosterId)) + Number(lowestScorers.has(submission.tiebreakers.lowestScorerRosterId))
+      : 0,
+  })).sort((left, right) => right.correct - left.correct || right.tiebreakCorrect - left.tiebreakCorrect || left.displayName.localeCompare(right.displayName));
   const topScore = standings[0]?.correct;
+  const topTiebreakScore = standings[0]?.tiebreakCorrect;
   return {
     week,
     standings,
-    winners: topScore == null ? [] : standings.filter((entry) => entry.correct === topScore).map(({ rosterId, displayName, correct }) => ({ rosterId, displayName, correct })),
+    winners: topScore == null ? [] : standings
+      .filter((entry) => entry.correct === topScore && entry.tiebreakCorrect === topTiebreakScore)
+      .map(({ rosterId, displayName, correct, tiebreakCorrect }) => ({ rosterId, displayName, correct, tiebreakCorrect })),
   };
 }
 
