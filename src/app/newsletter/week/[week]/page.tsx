@@ -131,6 +131,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
                   <strong>{team.name}</strong>
                   <small>{team.allPlayWins}–{report.powerRankings.length - 1 - team.allPlayWins} all-play · {team.lineupEfficiency.toFixed(0)}% efficiency</small>
                   <p>{team.blurb}</p>
+                  <span className={styles.rankingAdvice}>{team.advice}</span>
                 </div>
                 <span className={`${styles.movement} ${movementClass}`}>{movementLabel}</span>
                 <b className={styles.indexScore}><small>Index</small>{team.powerIndex}</b>

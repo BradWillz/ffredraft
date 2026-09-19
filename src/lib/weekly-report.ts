@@ -32,6 +32,7 @@ export type ReportTeam = {
   username: string;
   score: number;
   opponentName: string;
+  nextOpponentName: string;
   opponentScore: number;
   won: boolean;
   margin: number;
@@ -46,6 +47,7 @@ export type ReportTeam = {
   powerIndex: number;
   rankMovement: number | null;
   blurb: string;
+  advice: string;
   seasonWins: number;
   seasonLosses: number;
   seasonPoints: number;
@@ -142,83 +144,114 @@ function weeklyPowerIndexes(matchups: SleeperMatchup[]) {
 }
 
 function teamBlurb(team: ReportTeam, powerRank: number, scoreRank: number, teamCount: number) {
-  const score = team.score.toFixed(2);
-  const margin = Math.abs(team.margin).toFixed(2);
-  const efficiency = team.lineupEfficiency.toFixed(0);
-  const bench = team.benchPoints.toFixed(2);
   const opponent = team.opponentName;
+  const bench = Math.round(team.bestBenchedPoints);
   const hasBenchRegret = team.bestBenchedPoints > team.weakestStarterPoints;
   const lineupNote = hasBenchRegret
     ? [
-      `The bench hid ${team.bestBenchedPlayer} (${team.bestBenchedPoints.toFixed(2)}); the points were available, the judgment was not.`,
-      `${team.bestBenchedPlayer} watched ${team.bestBenchedPoints.toFixed(2)} points from safety. A managerial decision, technically.`,
-      `Unused ammunition: ${team.bestBenchedPlayer}, ${team.bestBenchedPoints.toFixed(2)} points. The lineup chose restraint at the worst possible moment.`,
-      `${team.bestBenchedPlayer} stayed benched with ${team.bestBenchedPoints.toFixed(2)} points ready to testify.`,
-      `The evidence starts with ${team.bestBenchedPlayer} on the bench, carrying ${team.bestBenchedPoints.toFixed(2)} points and a better case than the starters.`,
-      `One name explains the waste: ${team.bestBenchedPlayer}, left out despite ${team.bestBenchedPoints.toFixed(2)} points.`,
-      `${team.bestBenchedPlayer} supplied ${team.bestBenchedPoints.toFixed(2)} points from the sidelines; the lineup supplied the sabotage.`,
-      `Meanwhile, ${team.bestBenchedPlayer} accumulated ${team.bestBenchedPoints.toFixed(2)} bench points and escaped accountability.`,
-      `The unused ${team.bestBenchedPlayer} (${team.bestBenchedPoints.toFixed(2)}) is the sort of detail that ruins a manager's alibi.`,
-      `${team.bestBenchedPlayer} had ${team.bestBenchedPoints.toFixed(2)} points in reserve. They were not invited to the plan.`,
-      `Forensic detail: ${team.bestBenchedPlayer} scored ${team.bestBenchedPoints.toFixed(2)} on the bench.`,
-      `${team.bestBenchedPlayer}'s ${team.bestBenchedPoints.toFixed(2)} points never left the bench; ${team.name} will call that strategy.`
+      `The bench hid ${team.bestBenchedPlayer}; the points were available, the judgment was not.`,
+      `${team.bestBenchedPlayer} watched ${bench} points from safety. A managerial decision, technically.`,
+      `Unused ammunition: ${team.bestBenchedPlayer}. The lineup chose restraint at the worst possible moment.`,
+      `${team.bestBenchedPlayer} stayed benched with ${bench} points ready to testify.`,
+      `The evidence starts with ${team.bestBenchedPlayer}, left out while the starters made a meal of it.`,
+      `One name explains the waste: ${team.bestBenchedPlayer}. The idiot left the points out there.`,
+      `${team.bestBenchedPlayer} supplied the points from the sidelines; the lineup supplied the sabotage.`,
+      `Meanwhile, ${team.bestBenchedPlayer} piled up points on the bench and escaped accountability.`,
+      `The unused ${team.bestBenchedPlayer} is the sort of detail that ruins a manager's alibi.`,
+      `${team.bestBenchedPlayer} had points in reserve. They were not invited to the plan.`,
+      `Forensic detail: ${team.bestBenchedPlayer} was left on the bench while the matchup got away.`,
+      `${team.bestBenchedPlayer} never left the bench; ${team.name} will call that strategy.`
     ][Math.min(powerRank - 1, 11)]
     : [
       `No lineup crime identified; annoyingly competent by comparison.`,
-      `${team.weakestStarter} managed ${team.weakestStarterPoints.toFixed(2)} points, which was apparently the best available plan.`,
-      `Even the weakest starter, ${team.weakestStarter} at ${team.weakestStarterPoints.toFixed(2)}, has a defensible alibi.`,
-      `The lineup's least convincing witness was ${team.weakestStarter} (${team.weakestStarterPoints.toFixed(2)}), but the case remains circumstantial.`,
-      `${team.weakestStarter} posted ${team.weakestStarterPoints.toFixed(2)}; somehow, that was the responsible option.`,
-      `No obvious bench betrayal. ${team.weakestStarter} was merely the least inspiring starter at ${team.weakestStarterPoints.toFixed(2)}.`,
-      `The lineup was defensible, which is irritatingly rare. ${team.weakestStarter} still managed only ${team.weakestStarterPoints.toFixed(2)}.`,
-      `${team.weakestStarter}'s ${team.weakestStarterPoints.toFixed(2)} was the weak link, though nobody on the bench made a compelling appeal.`,
-      `Nothing egregious on the bench; ${team.weakestStarter} simply brought up the rear at ${team.weakestStarterPoints.toFixed(2)}.`,
-      `The selection passed inspection. ${team.weakestStarter} was the least convincing starter at ${team.weakestStarterPoints.toFixed(2)}.`,
-      `No discarded star emerged from the bench. ${team.weakestStarter} was merely ordinary at ${team.weakestStarterPoints.toFixed(2)}.`,
-      `A clean lineup by comparison, with ${team.weakestStarter} the only obvious soft spot at ${team.weakestStarterPoints.toFixed(2)}.`
+      `${team.weakestStarter} was apparently the best available plan. That is not a ringing endorsement.`,
+      `Even the weakest starter, ${team.weakestStarter}, has a defensible alibi.`,
+      `The lineup's least convincing witness was ${team.weakestStarter}, but the case remains circumstantial.`,
+      `${team.weakestStarter} was the responsible option. Lower the bar any further and it becomes a basement.`,
+      `No obvious bench betrayal. ${team.weakestStarter} was merely the least inspiring starter.`,
+      `The lineup was defensible, which is irritatingly rare.`,
+      `${team.weakestStarter} was the weak link, though nobody on the bench made a compelling appeal.`,
+      `Nothing egregious on the bench; ${team.weakestStarter} simply brought up the rear.`,
+      `The selection passed inspection. ${team.weakestStarter} was merely unconvincing.`,
+      `No discarded star emerged from the bench. The lineup was ordinary, not criminal.`,
+      `A clean lineup by comparison. There is almost nothing to mock.`
     ][Math.min(powerRank - 1, 11)];
-  const allPlayVerdict = team.allPlayWins >= teamCount / 2 ? "most of the league" : "most of the league's better scores";
 
   const blurbs = [
-    team.won && team.margin >= 30
-      ? `${margin} points over ${opponent}; ${team.name}'s scoreboard came with a complimentary surrender note. ${lineupNote}`
-      : `${score} points from ${team.name}, who beat ${opponent} and still left the lineup looking mildly unfinished. ${lineupNote}`,
+    team.won
+      ? `${team.name} beat ${opponent} and got away with it. ${lineupNote}`
+      : `${team.name} lost to ${opponent}; the result was kinder than the lineup deserved. ${lineupNote}`,
     scoreRank === 1
-      ? `${team.name} topped the scoring chart at ${score}, but ${efficiency}% efficiency is a spectacular score carrying avoidable baggage. ${lineupNote}`
-      : `${team.name} found ${score} points, then watched ${opponent} turn them into a winning argument. ${lineupNote}`,
+      ? `${team.name} topped the week, then made the bench do unpaid overtime. ${lineupNote}`
+      : team.won
+        ? `${team.name} beat ${opponent} and left the excuses unemployed. ${lineupNote}`
+        : `${team.name} handed ${opponent} the result and left the excuses in charge. ${lineupNote}`,
     team.won && team.allPlayWins < teamCount / 2
-      ? `Against ${opponent}, ${team.name} discovered the schedule's oldest trick: a win despite losing to ${allPlayVerdict}. ${lineupNote}`
-      : `${team.name} made ${opponent} pay ${margin} points for a result that looked closer on paper than it felt in practice. ${lineupNote}`,
+      ? `${team.name} beat ${opponent} while most of the league would have beaten them. A win, not a vindication. ${lineupNote}`
+      : team.won
+        ? `${team.name} beat ${opponent}; the matchup found the correct adult in the room. ${lineupNote}`
+        : `${opponent} beat ${team.name}; the matchup found the correct adult in the room. ${lineupNote}`,
     !team.won && team.allPlayWins >= teamCount / 2
-      ? `${team.name} would have beaten ${allPlayVerdict}; ${opponent} merely delivered the one verdict that counts. ${lineupNote}`
-      : `A ${margin}-point escape for ${team.name} over ${opponent}. Nothing majestic, but the standings remain legally obliged to respect it. ${lineupNote}`,
-    team.lineupEfficiency < 72
-      ? `${bench} points sat on ${team.name}'s bench while ${opponent} collected the win. The sideline had the sharper eye. ${lineupNote}`
-      : `${team.name} handled ${opponent} with ${efficiency}% efficiency: tidy work, though hardly a threat to the league's sleep schedule. ${lineupNote}`,
-    team.margin <= -30
-      ? `${opponent} beat ${team.name} by ${margin}; eventually the matchup stopped asking questions and started presenting evidence. ${lineupNote}`
-      : `${team.name} kept ${opponent} close enough to create suspense, then finished the job with ${efficiency}% efficiency. ${lineupNote}`,
+      ? `${team.name} had enough to trouble the league, but ${opponent} had enough to win. That is the entire tragedy. ${lineupNote}`
+      : team.won
+        ? `${team.name} got the better of ${opponent}. Do not confuse survival with excellence. ${lineupNote}`
+        : `${opponent} got the better of ${team.name}. Do not confuse the result with a quality performance. ${lineupNote}`,
     team.won
-      ? `${team.name} took down ${opponent} by ${margin}, a result best described as competent with a low ceiling. ${lineupNote}`
-      : `${team.name} scored ${score} and lost to ${opponent}. Respectable process, dreadful reward, no sympathy issued. ${lineupNote}`,
-    team.lineupEfficiency < 72
-      ? `${team.name} left ${bench} points idle and still made ${opponent} work for it. Imagine the damage with adult supervision. ${lineupNote}`
-      : `${team.name} beat ${opponent}; the ${margin}-point margin says victory, while the ${efficiency}% efficiency says do not overreact. ${lineupNote}`,
+      ? `${team.name} made ${opponent} look good and still won. The performance was charitable; the result was not. ${lineupNote}`
+      : `${team.name}'s poor lineup management made ${opponent} look good. Leaving points there was idiotic. ${lineupNote}`,
     team.margin <= -30
-      ? `For ${team.name}, ${opponent} was less an opponent than a closing argument, winning by ${margin}. ${lineupNote}`
-      : `${team.name} edged ${opponent} by ${margin}; a narrow triumph, polished just enough to avoid the word lucky. ${lineupNote}`,
+      ? `${opponent} dismantled ${team.name}; this stopped being a contest long before the final whistle. ${lineupNote}`
+      : `${team.name} kept ${opponent} honest, then let the result settle the argument. ${lineupNote}`,
     team.won
-      ? `${opponent} supplied the resistance and ${team.name} supplied ${score} points. The win is real; the aura is not. ${lineupNote}`
-      : `${team.name} lost to ${opponent} despite a ${score}-point effort. Fantasy remains brutally unimpressed by moral victories. ${lineupNote}`,
+      ? `${team.name} took the win from ${opponent}. Competent enough to count, not memorable enough to admire. ${lineupNote}`
+      : `${team.name} gave ${opponent} the win and received no sympathy in return. Fair exchange. ${lineupNote}`,
     team.lineupEfficiency < 72
-      ? `${team.name}'s ${efficiency}% efficiency made ${opponent} look generous. ${bench} bench points remain available for the post-match autopsy. ${lineupNote}`
-      : `${team.name} got past ${opponent} with ${score} points, which is enough for the table and not nearly enough for folklore. ${lineupNote}`,
+      ? `${team.name} asked ${opponent} to beat a badly managed lineup and was rewarded with the obvious outcome. ${lineupNote}`
+      : team.won
+        ? `${team.name} beat ${opponent}; tidy result, limited evidence of genius. ${lineupNote}`
+        : `${opponent} beat ${team.name}; tidy result, limited evidence of genius. ${lineupNote}`,
+    team.margin <= -30
+      ? `${team.name} was not outplayed by ${opponent} so much as thoroughly processed. ${lineupNote}`
+      : team.won
+        ? `${team.name} edged ${opponent} and can now pretend this was all part of the plan. ${lineupNote}`
+        : `${opponent} edged ${team.name}; pretending this was all part of the plan will not help. ${lineupNote}`,
+    team.won
+      ? `${opponent} supplied the resistance; ${team.name} supplied just enough competence. ${lineupNote}`
+      : `${opponent} won, ${team.name} lost, and the lineup review will not be a pleasant meeting. ${lineupNote}`,
+    team.lineupEfficiency < 72
+      ? `${team.name} selected poorly, invited ${opponent} to punish it, and got exactly that service. ${lineupNote}`
+      : team.won
+        ? `${team.name} got past ${opponent}. The table will record it; history will not. ${lineupNote}`
+        : `${opponent} got past ${team.name}. The table will record it; history will not. ${lineupNote}`,
     scoreRank === teamCount
-      ? `${team.name} finished last at ${score}; ${opponent} did not need brilliance, merely attendance. ${lineupNote}`
-      : `${team.name} and ${opponent} produced a ${margin}-point gap. One got the result; the other got a paragraph. ${lineupNote}`,
+      ? `${team.name} finished last, while ${opponent} needed only to turn up. ${lineupNote}`
+      : `${team.won ? team.name : opponent} won the argument with ${team.name}; the lineup was merely supporting evidence. ${lineupNote}`,
   ];
 
   return blurbs[Math.min(powerRank - 1, blurbs.length - 1)];
+}
+
+function teamAdvice(team: ReportTeam, powerRank: number) {
+  const benchMistake = team.bestBenchedPoints > team.weakestStarterPoints
+    ? ` Start ${team.bestBenchedPlayer} next week; leaving him on the bench is daft.`
+    : " Stop tinkering for the sake of it and trust a competent lineup.";
+  const nextOpponent = team.nextOpponentName;
+  const advice = [
+    `My advice: enjoy the win, then make a trade before everyone notices the cracks. You're facing ${nextOpponent} next week; they're beatable if you stop leaving points behind.${benchMistake}`,
+    `My advice: get on the waiver wire and find some depth. You're facing ${nextOpponent} next week, so bring more than one functioning plan.`,
+    `My advice: trade for a reliable starter. ${nextOpponent} is beatable, but you cannot keep asking the schedule to do the heavy lifting.`,
+    `My advice: add depth immediately. Against ${nextOpponent} next week, one injury turns this team into a group project with no adult supervision.`,
+    `My advice: stop being daft with the lineup and make the obvious start next week. ${nextOpponent} can be beaten; do not hand them the advantage.${benchMistake}`,
+    `My advice: find a trade partner before ${nextOpponent} turns this into another weekly exercise in damage control.`,
+    `My advice: use the waiver wire and improve the bench. ${nextOpponent} is not terrifying, but this roster is making a convincing case for them.`,
+    `My advice: make a move before facing ${nextOpponent}. Standing still is not a strategy; it is just losing with better posture.`,
+    `My advice: get some depth and a second opinion. ${nextOpponent} is beatable, provided you stop offering them free advantages.${benchMistake}`,
+    `My advice: stop chasing headlines and fix the lineup basics before ${nextOpponent} arrives. The obvious start would be a nice beginning.${benchMistake}`,
+    `My advice: trade aggressively for upside. ${nextOpponent} can be beaten, but there is not enough here to survive on good intentions.`,
+    `My advice: start again at the waiver wire, then make trades before ${nextOpponent} gets an easy win. This roster barely resembles a plan.`,
+  ];
+
+  return advice[Math.min(powerRank - 1, advice.length - 1)];
 }
 
 export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
@@ -240,6 +273,12 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
   const weeklyMatchups = await Promise.all(
     Array.from({ length: week }, (_, index) => getLeagueMatchups(SLEEPER_LEAGUE_ID, index + 1) as Promise<SleeperMatchup[]>),
   );
+  let nextWeekMatchups: SleeperMatchup[] = [];
+  try {
+    nextWeekMatchups = await getLeagueMatchups(SLEEPER_LEAGUE_ID, week + 1) as SleeperMatchup[];
+  } catch {
+    nextWeekMatchups = [];
+  }
   const matchups = weeklyMatchups.at(-1) ?? [];
   if (matchups.length === 0) throw new Error(`No Sleeper matchups found for Week ${week}`);
 
@@ -249,6 +288,11 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
     const username = user?.username || user?.display_name || user?.user_id || `Team${roster.roster_id}`;
     return [roster.roster_id, { name: getDisplayName(username), username: normalizeUsername(username) }];
   }));
+  const nextOpponentNames = new Map<number, string>();
+  for (const matchup of nextWeekMatchups) {
+    const opponent = nextWeekMatchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
+    nextOpponentNames.set(matchup.roster_id, rosterNames.get(opponent?.roster_id ?? 0)?.name ?? "your next opponent");
+  }
   const seasonRecords = new Map<number, { wins: number; losses: number; points: number }>();
   for (const weekMatchups of weeklyMatchups) {
     const groups = new Map<number, SleeperMatchup[]>();
@@ -297,6 +341,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       username: identity.username,
       score,
       opponentName: opponentIdentity?.name ?? "Bye week",
+      nextOpponentName: nextOpponentNames.get(matchup.roster_id) ?? "your next opponent",
       opponentScore,
       won: score > opponentScore,
       margin: score - opponentScore,
@@ -311,6 +356,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       powerIndex: 0,
       rankMovement: null,
       blurb: "",
+      advice: "",
       seasonWins: record.wins,
       seasonLosses: record.losses,
       seasonPoints: record.points,
@@ -335,6 +381,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
     return {
       ...rankedTeam,
       blurb: teamBlurb(rankedTeam, currentRank, scoreRanks.get(team.rosterId) ?? rawTeams.length, rawTeams.length),
+      advice: teamAdvice(rankedTeam, currentRank),
     };
   });
   const teamsByRoster = new Map(teams.map((team) => [team.rosterId, team]));
