@@ -41,6 +41,8 @@ Ordinary newsletter views never call OpenAI. Generated copy is cached by season,
 
 Run `npm run test:newsletter` for the scoring, source-validation and mocked generation/cache regression tests. These tests do not call OpenAI.
 
+Commentary diagnostics are structured server logs with `scope: "newsletter.commentary"`. After deploying, filter Vercel runtime logs by the `requestId` shown in the admin failure message. Events cover route/generation start and end, configuration presence, OpenAI status/response ID/output length, JSON parsing, per-roster validation (with matchup IDs), citations, and cache operations (`backend: "redis"` or `"memory"`). Errors include redacted exception stacks and causes via `console.error`; keys, authentication headers/cookies, and raw commentary/source URLs are not intentionally logged. The admin API returns safe `stage` and `reason` fields without exposing provider exception bodies. A validation pass means the existing checks passed, not that every generated claim was independently fact-checked. Diagnostics do not alter prompts, generation settings, acceptance rules, or the factual fallback.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

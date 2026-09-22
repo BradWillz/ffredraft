@@ -66,10 +66,14 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ week: newsletterWeek }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await response.json() as { error?: string; stage?: string; reason?: string; requestId?: string };
       setNewsletterStatus(response.ok
         ? `Week ${newsletterWeek}: ${clear ? "factual copy restored" : "AI copy saved"}.`
-        : result.error ?? "Could not update the newsletter.");
+        : [
+          result.error ?? "Could not update the newsletter.",
+          result.reason ? `${result.stage ? `[${result.stage}] ` : ""}${result.reason}` : "",
+          result.requestId ? `Request: ${result.requestId}` : "",
+        ].filter(Boolean).join(" "));
     } catch {
       setNewsletterStatus("Could not reach the server. Please try again.");
     } finally {

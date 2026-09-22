@@ -4,6 +4,37 @@ import { clearNewsletterCommentary, generateNewsletterCommentary, getNewsletterC
 import { sharedAcquireLock, sharedDelete } from "./shared-store";
 import type { WeeklyReport } from "./weekly-report";
 import { bestLegalBenchSwap, matchupSummary, waiverPickupsOfWeek, type WeeklyMatchup } from "./weekly-report-analysis";
+import { CommentaryDiagnosticError, diagnosticStep, logCommentaryDiagnostic, safeDiagnosticException } from "./newsletter-diagnostics";
+
+test("diagnostics retain exception stacks and causes but redact secrets", async () => {
+  const previous = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "test-diagnostic-secret";
+  const logger = mock.method(console, "error", () => {});
+  try {
+    const cause = Object.assign(new Error("Provider rejected test-diagnostic-secret"), {
+      headers: { authorization: "Bearer private", "set-cookie": "session=private" },
+      status: 401,
+    });
+    const error = new Error("Operation failed", { cause });
+    const serialized = JSON.stringify(safeDiagnosticException(error));
+    assert.match(serialized, /Operation failed|stack/);
+    assert.match(serialized, /401/);
+    assert.doesNotMatch(serialized, /test-diagnostic-secret|Bearer private|session=private/);
+    await assert.rejects(diagnosticStep({ requestId: "test", week: 2 }, "openai", "OpenAI request failed", async () => { throw error; }), (failure: unknown) => {
+      assert.ok(failure instanceof CommentaryDiagnosticError);
+      assert.equal(failure.stage, "openai");
+      assert.equal(failure.reason, "OpenAI request failed");
+      return true;
+    });
+    logCommentaryDiagnostic({ requestId: "test", week: 2 }, "route", "failed", {}, error);
+    assert.equal(logger.mock.callCount(), 2);
+    assert.doesNotMatch(JSON.stringify(logger.mock.calls), /test-diagnostic-secret|Bearer private|session=private/);
+  } finally {
+    logger.mock.restore();
+    if (previous === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previous;
+  }
+});
 
 const players = {
   quarterback: { full_name: "Starting QB", position: "QB" },
@@ -77,6 +108,34 @@ test("AI commentary requires complete rosters and retrieved sources for injury c
   assert.throws(() => validateNewsletterCommentary({ teams: [{ ...team, blurb: "x".repeat(601) }] }, [1], new Set()));
 });
 
+test("validation diagnostics identify every roster and citation failure without changing rejection rules", () => {
+  const errors = mock.method(console, "error", () => {});
+  const info = mock.method(console, "info", () => {});
+  const team = { rosterId: 1, blurb: "Manager won.", advice: "Review the lineup.", sources: [] };
+  try {
+    assert.throws(() => validateNewsletterCommentary({ teams: [
+      { ...team, blurb: "x".repeat(601) },
+      { ...team, rosterId: 2 },
+      { ...team, rosterId: 3, sources: [{ title: "Report", url: "https://example.com/unretrieved?token=private" }] },
+      { ...team, rosterId: 4, blurb: "The starter was injured." },
+    ] }, [1, 2, 3, 4, 5], new Set(), { requestId: "validation-test", week: 2 }, new Map([[1, 3]])), (error: unknown) => {
+      assert.ok(error instanceof CommentaryDiagnosticError);
+      assert.equal(error.stage, "validation");
+      assert.equal(error.reason, "matchup 3, roster 1: blurb length 601 exceeds 600 characters");
+      return true;
+    });
+    const entries = [...errors.mock.calls, ...info.mock.calls].map((call) => JSON.parse(call.arguments[0] as string));
+    assert.ok(entries.some((entry) => entry.rosterId === 2 && entry.event === "passed"));
+    for (const rosterId of [1, 3, 4, 5]) assert.ok(entries.some((entry) => entry.rosterId === rosterId && entry.event === "failed"));
+    assert.ok(entries.some((entry) => entry.stage === "citations" && entry.reason.includes("not present in retrieved citations")));
+    assert.ok(entries.some((entry) => entry.reason?.includes("unverifiable injury claim")));
+    assert.doesNotMatch(JSON.stringify(entries), /example.com|token=private/);
+  } finally {
+    errors.mock.restore();
+    info.mock.restore();
+  }
+});
+
 test("AI generation reuses saved copy, invalidates changed facts, and recovers after failure", async () => {
   const environmentKeys = ["OPENAI_API_KEY", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_URL", "KV_REST_API_TOKEN"];
   const originalEnvironment = environmentKeys.map((key) => [key, process.env[key]] as const);
@@ -89,16 +148,22 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
   } as unknown as WeeklyReport;
   const teams = [{ rosterId: 1, blurb: "Manager won by 10.", advice: "Review the lineup.", sources: [] }];
   let fail = false;
+  let outputText = JSON.stringify({ teams });
+  let responseStatus = "completed";
+  const diagnostics = { requestId: "generation-test", week: 1 };
+  const info = mock.method(console, "info", () => {});
+  const errors = mock.method(console, "error", () => {});
   const fetchMock = mock.method(globalThis, "fetch", async () => fail
     ? new Response(JSON.stringify({ error: { message: "Test failure", type: "invalid_request_error" } }), { status: 401, headers: { "Content-Type": "application/json" } })
     : new Response(JSON.stringify({
       id: "test-response",
       object: "response",
-      status: "completed",
-      output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: JSON.stringify({ teams }), annotations: [] }] }],
+      status: responseStatus,
+      text: { format: { type: "json_schema" } },
+      output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: outputText, annotations: [] }] }],
     }), { headers: { "Content-Type": "application/json" } }));
   try {
-    const first = await generateNewsletterCommentary(report);
+    const first = await generateNewsletterCommentary(report, diagnostics);
     assert.deepEqual(first.teams, teams);
     assert.deepEqual(await generateNewsletterCommentary(report), first);
     assert.equal(fetchMock.mock.callCount(), 1);
@@ -113,8 +178,35 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
     assert.deepEqual((await generateNewsletterCommentary(report)).teams, teams);
     assert.equal(fetchMock.mock.callCount(), 3);
     await clearNewsletterCommentary(report);
+    for (const [text, stage, reason] of [
+      ["not JSON", "json_parse", "OpenAI output_text was not valid JSON"],
+      ["{}", "validation", "Expected a JSON object with a teams array"],
+      [JSON.stringify({ teams: [{ ...teams[0], advice: "x".repeat(261) }] }), "validation", "roster 1: advice length 261 exceeds 260 characters"],
+    ]) {
+      outputText = text;
+      await assert.rejects(generateNewsletterCommentary(report, diagnostics), (error: unknown) => {
+        assert.ok(error instanceof CommentaryDiagnosticError);
+        assert.equal(error.stage, stage);
+        assert.equal(error.reason, reason);
+        return true;
+      });
+      assert.equal(await getNewsletterCommentary(report), null);
+    }
+    responseStatus = "incomplete";
+    await assert.rejects(generateNewsletterCommentary(report, diagnostics), (error: unknown) => error instanceof CommentaryDiagnosticError && error.stage === "openai_response");
+    const entries = [...info.mock.calls, ...errors.mock.calls].map((call) => JSON.parse(call.arguments[0] as string));
+    assert.ok(entries.some((entry) => entry.requestId === "generation-test" && entry.event === "response" && entry.responseId === "test-response" && entry.httpStatus === 200 && entry.outputTextLength > 0));
+    assert.ok(entries.some((entry) => entry.stage === "openai" && entry.httpStatus === 401 && entry.event === "failed"));
+    assert.ok(entries.some((entry) => entry.stage === "json_parse" && entry.event === "failed" && entry.exception.name === "SyntaxError"));
+    assert.ok(entries.some((entry) => entry.stage === "cache_write" && entry.event === "success"));
+    assert.ok(entries.some((entry) => entry.stage === "cache_read" && entry.hit === true));
+    assert.ok(entries.some((entry) => entry.stage === "validation" && entry.expectedStructuredJson === false));
+    assert.ok(entries.some((entry) => entry.stage === "generation" && entry.event === "end"));
+    assert.doesNotMatch(JSON.stringify(entries), /test-key-not-a-real-secret/);
   } finally {
     fetchMock.mock.restore();
+    info.mock.restore();
+    errors.mock.restore();
     for (const [key, value] of originalEnvironment) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;

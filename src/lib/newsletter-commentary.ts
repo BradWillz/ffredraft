@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import OpenAI from "openai";
 import { sharedAcquireLock, sharedDelete, sharedGet, sharedSet } from "./shared-store";
 import type { WeeklyReport } from "./weekly-report";
+import { CommentaryDiagnosticError, commentaryFailure, diagnosticStep, logCommentaryDiagnostic, type CommentaryDiagnostics } from "./newsletter-diagnostics";
 
 export type NewsletterCommentary = {
   generatedAt: string;
@@ -36,10 +37,18 @@ function commentaryKey(report: WeeklyReport) {
   return `newsletter:commentary:v1:${report.season}:${report.week}:${fingerprint}`;
 }
 
-export async function getNewsletterCommentary(report: WeeklyReport) {
+function storageDetails() {
+  return { backend: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL)
+    && (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN) ? "redis" : "memory" };
+}
+
+export async function getNewsletterCommentary(report: WeeklyReport, diagnostics?: CommentaryDiagnostics) {
   try {
-    return await sharedGet<NewsletterCommentary>(commentaryKey(report));
-  } catch {
+    const cached = await diagnosticStep(diagnostics, "cache_read", "Could not read saved commentary", () => sharedGet<NewsletterCommentary>(commentaryKey(report)), storageDetails());
+    logCommentaryDiagnostic(diagnostics, "cache_read", "result", { hit: cached !== null });
+    return cached;
+  } catch (error) {
+    logCommentaryDiagnostic(diagnostics, "cache_read", "fallback", { reason: "Cache read failed; continuing with the existing cache-miss fallback" }, error);
     return null;
   }
 }
@@ -48,68 +57,117 @@ export function validateNewsletterCommentary(
   value: unknown,
   rosterIds: number[],
   retrievedUrls: Set<string>,
+  diagnostics?: CommentaryDiagnostics,
+  matchupIds = new Map<number, number>(),
 ): NewsletterCommentary["teams"] {
+  const structured = !!value && typeof value === "object" && "teams" in value && Array.isArray(value.teams);
+  logCommentaryDiagnostic(diagnostics, "validation", "structure", { expectedStructuredJson: structured, expectedTeams: rosterIds.length });
   if (!value || typeof value !== "object" || !("teams" in value) || !Array.isArray(value.teams)) {
-    throw new Error("Invalid commentary response");
+    const error = new CommentaryDiagnosticError("validation", "Expected a JSON object with a teams array");
+    for (const rosterId of rosterIds) logCommentaryDiagnostic(diagnostics, "validation", "failed", { rosterId, matchupId: matchupIds.get(rosterId), reason: "Verification unavailable: expected teams array was not returned" });
+    logCommentaryDiagnostic(diagnostics, "validation", "failed", { reason: error.reason }, error);
+    throw error;
   }
   const seen = new Set<number>();
-  const teams = value.teams.map((team: unknown) => {
-    if (!team || typeof team !== "object") throw new Error("Invalid commentary team");
-    const candidate = team as Record<string, unknown>;
-    const { rosterId, blurb, advice, sources } = candidate;
-    if (typeof rosterId !== "number" || !rosterIds.includes(rosterId) || seen.has(rosterId)
-      || typeof blurb !== "string" || !blurb.trim() || blurb.length > 600
-      || typeof advice !== "string" || !advice.trim() || advice.length > 260
-      || !Array.isArray(sources) || sources.length > 4) {
-      throw new Error("Invalid commentary team");
-    }
-    seen.add(rosterId);
-    const verifiedSources = sources.map((source: unknown) => {
-      if (!source || typeof source !== "object") throw new Error("Invalid commentary source");
-      const { title, url } = source as Record<string, unknown>;
-      if (typeof title !== "string" || !title.trim() || title.length > 180
-        || typeof url !== "string" || !retrievedUrls.has(url) || !/^https?:\/\//i.test(url)) {
-        throw new Error("Unverified commentary source");
+  const encountered = new Set<number>();
+  const teams: NewsletterCommentary["teams"] = [];
+  let firstFailure: CommentaryDiagnosticError | undefined;
+  for (const [index, team] of value.teams.entries()) {
+    const rosterIdValue = team && typeof team === "object" ? (team as Record<string, unknown>).rosterId : undefined;
+    const rosterId = typeof rosterIdValue === "number" && Number.isFinite(rosterIdValue) ? rosterIdValue : undefined;
+    const matchupId = rosterId === undefined ? undefined : matchupIds.get(rosterId);
+    const label = rosterId === undefined ? `team entry ${index + 1}` : `${matchupId === undefined ? "" : `matchup ${matchupId}, `}roster ${rosterId}`;
+    const details = { teamIndex: index, rosterId, matchupId };
+    if (rosterId !== undefined) encountered.add(rosterId);
+    const reject = (reason: string): never => { throw new CommentaryDiagnosticError("validation", `${label}: ${reason}`); };
+    try {
+      if (!team || typeof team !== "object") reject("expected a team object");
+      const candidate = team as Record<string, unknown>;
+      const { blurb, advice, sources } = candidate;
+      if (rosterId === undefined || !rosterIds.includes(rosterId)) reject("rosterId does not match an expected roster");
+      if (seen.has(rosterId!)) reject("duplicate rosterId");
+      if (typeof blurb !== "string" || !blurb.trim()) reject("blurb must be a non-empty string");
+      if ((blurb as string).length > 600) reject(`blurb length ${(blurb as string).length} exceeds 600 characters`);
+      if (typeof advice !== "string" || !advice.trim()) reject("advice must be a non-empty string");
+      if ((advice as string).length > 260) reject(`advice length ${(advice as string).length} exceeds 260 characters`);
+      if (!Array.isArray(sources)) reject("sources must be an array");
+      if ((sources as unknown[]).length > 4) reject(`source count ${(sources as unknown[]).length} exceeds 4`);
+      seen.add(rosterId!);
+      const verifiedSources = (sources as unknown[]).map((source: unknown, sourceIndex) => {
+        try {
+          if (!source || typeof source !== "object") reject(`source ${sourceIndex + 1} must be an object`);
+          const { title, url } = source as Record<string, unknown>;
+          if (typeof title !== "string" || !title.trim()) reject(`source ${sourceIndex + 1} title must be non-empty`);
+          if ((title as string).length > 180) reject(`source ${sourceIndex + 1} title length exceeds 180 characters`);
+          if (typeof url !== "string") reject(`source ${sourceIndex + 1} URL must be a string`);
+          if (!retrievedUrls.has(url as string)) reject(`source ${sourceIndex + 1} URL was not present in retrieved citations`);
+          if (!/^https?:\/\//i.test(url as string)) reject(`source ${sourceIndex + 1} URL is not HTTP or HTTPS`);
+          return { title: title as string, url: url as string };
+        } catch (error) {
+          logCommentaryDiagnostic(diagnostics, "citations", "failed", { ...details, sourceIndex, reason: (error as CommentaryDiagnosticError).reason }, error);
+          throw error;
+        }
+      });
+      if (!verifiedSources.length && /injur|concuss|hamstring|ankle|ruled out|left the game|exited|knee|achilles|limited snaps|carted|hurt|sidelined/i.test(`${blurb} ${advice}`)) {
+        logCommentaryDiagnostic(diagnostics, "citations", "failed", { ...details, reason: "Injury wording was detected without a retrieved source" });
+        reject("contained an unverifiable injury claim: injury wording requires a retrieved source");
       }
-      return { title, url };
-    });
-    if (!verifiedSources.length && /injur|concuss|hamstring|ankle|ruled out|left the game|exited|knee|achilles|limited snaps|carted|hurt|sidelined/i.test(`${blurb} ${advice}`)) {
-      throw new Error("Injury context requires a retrieved source");
+      teams.push({ rosterId: rosterId!, blurb: (blurb as string).trim(), advice: (advice as string).trim(), sources: verifiedSources });
+      logCommentaryDiagnostic(diagnostics, "validation", "passed", { ...details, sourceCount: verifiedSources.length, reason: "Passed existing field, citation URL and injury-source checks" });
+    } catch (error) {
+      const failure = commentaryFailure(error, "validation", `${label}: unexpected validation exception`);
+      firstFailure ??= failure;
+      logCommentaryDiagnostic(diagnostics, "validation", "failed", { ...details, reason: failure.reason }, error);
     }
-    return { rosterId, blurb: blurb.trim(), advice: advice.trim(), sources: verifiedSources };
-  });
-  if (seen.size !== rosterIds.length) throw new Error("Incomplete commentary response");
+  }
+  for (const rosterId of rosterIds.filter((expected) => !encountered.has(expected))) {
+    const failure = new CommentaryDiagnosticError("validation", `roster ${rosterId}: commentary was missing from the response`);
+    firstFailure ??= failure;
+    logCommentaryDiagnostic(diagnostics, "validation", "failed", { rosterId, matchupId: matchupIds.get(rosterId), reason: failure.reason }, failure);
+  }
+  if (firstFailure) throw firstFailure;
+  if (seen.size !== rosterIds.length) throw new CommentaryDiagnosticError("validation", "Incomplete commentary response");
+  logCommentaryDiagnostic(diagnostics, "validation", "success", { verifiedTeams: teams.length });
   return teams;
 }
 
-export async function clearNewsletterCommentary(report: WeeklyReport) {
+export async function clearNewsletterCommentary(report: WeeklyReport, diagnostics?: CommentaryDiagnostics) {
   const lockKey = `${commentaryKey(report)}:lock`;
-  if (!await sharedAcquireLock(lockKey, 180)) throw new Error("Generation already in progress");
+  if (!await diagnosticStep(diagnostics, "cache_lock", "Could not acquire the commentary lock", () => sharedAcquireLock(lockKey, 180), storageDetails())) throw new Error("Generation already in progress");
   try {
-    await sharedDelete(commentaryKey(report));
+    await diagnosticStep(diagnostics, "cache_delete", "Could not delete saved commentary", () => sharedDelete(commentaryKey(report)), storageDetails());
   } finally {
-    await sharedDelete(lockKey);
+    await diagnosticStep(diagnostics, "cache_unlock", "Could not release the commentary lock", () => sharedDelete(lockKey), storageDetails());
   }
 }
 
-export async function generateNewsletterCommentary(report: WeeklyReport) {
-  const existing = await getNewsletterCommentary(report);
+export async function generateNewsletterCommentary(report: WeeklyReport, diagnostics?: CommentaryDiagnostics) {
+  return diagnosticStep(diagnostics, "generation", "Unexpected commentary generation failure", () => generateSavedCommentary(report, diagnostics), {
+    week: report.week,
+    apiKeyExists: Boolean(process.env.OPENAI_API_KEY),
+    model: process.env.OPENAI_NEWSLETTER_MODEL || "gpt-4.1",
+  });
+}
+
+async function generateSavedCommentary(report: WeeklyReport, diagnostics?: CommentaryDiagnostics) {
+  const existing = await getNewsletterCommentary(report, diagnostics);
   if (existing) return existing;
   const lockKey = `${commentaryKey(report)}:lock`;
-  if (!await sharedAcquireLock(lockKey, 180)) throw new Error("Generation already in progress");
+  if (!await diagnosticStep(diagnostics, "cache_lock", "Could not acquire the commentary lock", () => sharedAcquireLock(lockKey, 180), storageDetails())) throw new CommentaryDiagnosticError("cache_lock", "Generation already in progress");
   try {
-    const saved = await getNewsletterCommentary(report);
-    return saved ?? await createNewsletterCommentary(report);
+    const saved = await getNewsletterCommentary(report, diagnostics);
+    return saved ?? await createNewsletterCommentary(report, diagnostics);
   } finally {
-    await sharedDelete(lockKey);
+    await diagnosticStep(diagnostics, "cache_unlock", "Could not release the commentary lock", () => sharedDelete(lockKey), storageDetails());
   }
 }
 
-async function createNewsletterCommentary(report: WeeklyReport) {
+async function createNewsletterCommentary(report: WeeklyReport, diagnostics?: CommentaryDiagnostics) {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
   const model = process.env.OPENAI_NEWSLETTER_MODEL || "gpt-4.1";
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 110_000, maxRetries: 0 });
-  const response = await client.responses.create({
+  const response = await diagnosticStep(diagnostics, "openai", "OpenAI HTTP/API request failed; see server exception details", async () => {
+    const result = await client.responses.create({
     model,
     store: false,
     max_output_tokens: 6500,
@@ -166,8 +224,19 @@ Return plain text in blurb/advice, with citations only in the sources array.`,
         },
       },
     },
-  });
-  if (response.status !== "completed") throw new Error("Commentary generation did not complete");
+    }).withResponse();
+    logCommentaryDiagnostic(diagnostics, "openai", "response", {
+      httpStatus: result.response.status,
+      responseId: result.data.id,
+      responseStatus: result.data.status,
+      outputTextLength: result.data.output_text?.length ?? 0,
+      expectedStructuredFormat: result.data.text?.format?.type === "json_schema",
+      incompleteReason: result.data.incomplete_details?.reason,
+      refusalCount: result.data.output?.filter((item) => item.type === "message").flatMap((item) => item.content).filter((content) => content.type === "refusal").length,
+    });
+    return result.data;
+  }, { model });
+  if (response.status !== "completed") throw new CommentaryDiagnosticError("openai_response", `OpenAI response did not complete${response.incomplete_details?.reason === "max_output_tokens" ? ": max_output_tokens reached" : response.incomplete_details?.reason === "content_filter" ? ": content_filter" : ""}`);
   const retrievedUrls = new Set<string>();
   for (const item of response.output) {
     if (item.type === "web_search_call" && item.action?.type === "search") {
@@ -182,8 +251,11 @@ Return plain text in blurb/advice, with citations only in the sources array.`,
       }
     }
   }
-  const teams = validateNewsletterCommentary(JSON.parse(response.output_text), report.powerRankings.map((team) => team.rosterId), retrievedUrls);
+  logCommentaryDiagnostic(diagnostics, "citations", "collected", { retrievedUrlCount: retrievedUrls.size });
+  const parsed = await diagnosticStep(diagnostics, "json_parse", "OpenAI output_text was not valid JSON", async () => JSON.parse(response.output_text) as unknown);
+  const matchupIds = new Map(report.matchups?.flatMap((matchup) => [[matchup.team1.rosterId, matchup.id], [matchup.team2.rosterId, matchup.id]] as Array<[number, number]>) ?? []);
+  const teams = validateNewsletterCommentary(parsed, report.powerRankings.map((team) => team.rosterId), retrievedUrls, diagnostics, matchupIds);
   const commentary = { generatedAt: new Date().toISOString(), model, teams };
-  await sharedSet(commentaryKey(report), commentary);
+  await diagnosticStep(diagnostics, "cache_write", "Could not save verified commentary", () => sharedSet(commentaryKey(report), commentary), storageDetails());
   return commentary;
 }
