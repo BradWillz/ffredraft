@@ -7,12 +7,19 @@ import {
   getLeague,
   getLeagueMatchups,
   getLeagueRosters,
+  getLeagueTransactions,
   getLeagueUsers,
   getWeeklyPlayerProjections,
 } from "./sleeper";
 import { getWheelState } from "./wheel-state";
+import {
+  matchupSummary,
+  waiverPickupsOfWeek,
+  type WeeklyPlayer,
+  type WeeklyTransaction,
+} from "./weekly-report-analysis";
 
-type SleeperLeague = { name?: string; season: string; settings?: { last_scored_leg?: number } };
+type SleeperLeague = { name?: string; season: string; roster_positions?: string[]; settings?: { last_scored_leg?: number } };
 type SleeperRoster = { roster_id: number; owner_id?: string | null };
 type SleeperUser = { user_id: string; username?: string; display_name?: string };
 type SleeperMatchup = {
@@ -23,7 +30,7 @@ type SleeperMatchup = {
   starters?: string[];
   players_points?: Record<string, number>;
 };
-type SleeperPlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string };
+type SleeperPlayer = WeeklyPlayer;
 type PlayerProjection = { pts_half_ppr?: number };
 
 export type ReportTeam = {
@@ -48,6 +55,7 @@ export type ReportTeam = {
   rankMovement: number | null;
   blurb: string;
   advice: string;
+  starters: Array<{ playerId: string; name: string; points: number | null }>;
   seasonWins: number;
   seasonLosses: number;
   seasonPoints: number;
@@ -72,6 +80,10 @@ export type WeeklyReport = {
   upset: { winner: ReportTeam; loser: ReportTeam; projectionGap: number } | null;
   powerHolder: { holderName: string; reason: string } | null;
   wheel: { scenario: string; winnerName?: string; details?: string } | null;
+  waiverPickup: {
+    available: boolean;
+    winners: Array<{ playerId: string; playerName: string; managerName: string; rosterId: number; points: number; started: boolean }>;
+  };
   ladbrokes: {
     winners: Array<{ displayName: string; correct: number }>;
     total: number;
@@ -143,129 +155,20 @@ function weeklyPowerIndexes(matchups: SleeperMatchup[]) {
   })).sort((left, right) => right.powerIndex - left.powerIndex);
 }
 
-function teamBlurb(team: ReportTeam, powerRank: number, scoreRank: number, teamCount: number) {
-  const opponent = team.opponentName;
-  const bench = Math.round(team.bestBenchedPoints);
-  const hasBenchRegret = team.bestBenchedPoints > team.weakestStarterPoints;
-  const lineupNote = hasBenchRegret
-    ? [
-      `The bench hid ${team.bestBenchedPlayer}; the points were available, the judgment was not.`,
-      `${team.bestBenchedPlayer} watched ${bench} points from safety. A managerial decision, technically.`,
-      `Unused ammunition: ${team.bestBenchedPlayer}. The lineup chose restraint at the worst possible moment.`,
-      `${team.bestBenchedPlayer} stayed benched with ${bench} points ready to testify.`,
-      `The evidence starts with ${team.bestBenchedPlayer}, left out while the starters made a meal of it.`,
-      `One name explains the waste: ${team.bestBenchedPlayer}. The idiot left the points out there.`,
-      `${team.bestBenchedPlayer} supplied the points from the sidelines; the lineup supplied the sabotage.`,
-      `Meanwhile, ${team.bestBenchedPlayer} piled up points on the bench and escaped accountability.`,
-      `The unused ${team.bestBenchedPlayer} is the sort of detail that ruins a manager's alibi.`,
-      `${team.bestBenchedPlayer} had points in reserve. They were not invited to the plan.`,
-      `Forensic detail: ${team.bestBenchedPlayer} was left on the bench while the matchup got away.`,
-      `${team.bestBenchedPlayer} never left the bench; ${team.name} will call that strategy.`
-    ][Math.min(powerRank - 1, 11)]
-    : [
-      `No lineup crime identified; annoyingly competent by comparison.`,
-      `${team.weakestStarter} was apparently the best available plan. That is not a ringing endorsement.`,
-      `Even the weakest starter, ${team.weakestStarter}, has a defensible alibi.`,
-      `The lineup's least convincing witness was ${team.weakestStarter}, but the case remains circumstantial.`,
-      `${team.weakestStarter} was the responsible option. Lower the bar any further and it becomes a basement.`,
-      `No obvious bench betrayal. ${team.weakestStarter} was merely the least inspiring starter.`,
-      `The lineup was defensible, which is irritatingly rare.`,
-      `${team.weakestStarter} was the weak link, though nobody on the bench made a compelling appeal.`,
-      `Nothing egregious on the bench; ${team.weakestStarter} simply brought up the rear.`,
-      `The selection passed inspection. ${team.weakestStarter} was merely unconvincing.`,
-      `No discarded star emerged from the bench. The lineup was ordinary, not criminal.`,
-      `A clean lineup by comparison. There is almost nothing to mock.`
-    ][Math.min(powerRank - 1, 11)];
-
-  const blurbs = [
-    team.won
-      ? `${team.name} beat ${opponent} and got away with it. ${lineupNote}`
-      : `${team.name} lost to ${opponent}; the result was kinder than the lineup deserved. ${lineupNote}`,
-    scoreRank === 1
-      ? `${team.name} topped the week, then made the bench do unpaid overtime. ${lineupNote}`
-      : team.won
-        ? `${team.name} beat ${opponent} and left the excuses unemployed. ${lineupNote}`
-        : `${team.name} handed ${opponent} the result and left the excuses in charge. ${lineupNote}`,
-    team.won && team.allPlayWins < teamCount / 2
-      ? `${team.name} beat ${opponent} while most of the league would have beaten them. A win, not a vindication. ${lineupNote}`
-      : team.won
-        ? `${team.name} beat ${opponent}; the matchup found the correct adult in the room. ${lineupNote}`
-        : `${opponent} beat ${team.name}; the matchup found the correct adult in the room. ${lineupNote}`,
-    !team.won && team.allPlayWins >= teamCount / 2
-      ? `${team.name} had enough to trouble the league, but ${opponent} had enough to win. That is the entire tragedy. ${lineupNote}`
-      : team.won
-        ? `${team.name} got the better of ${opponent}. Do not confuse survival with excellence. ${lineupNote}`
-        : `${opponent} got the better of ${team.name}. Do not confuse the result with a quality performance. ${lineupNote}`,
-    team.won
-      ? `${team.name} made ${opponent} look good and still won. The performance was charitable; the result was not. ${lineupNote}`
-      : `${team.name}'s poor lineup management made ${opponent} look good. Leaving points there was idiotic. ${lineupNote}`,
-    team.margin <= -30
-      ? `${opponent} dismantled ${team.name}; this stopped being a contest long before the final whistle. ${lineupNote}`
-      : `${team.name} kept ${opponent} honest, then let the result settle the argument. ${lineupNote}`,
-    team.won
-      ? `${team.name} took the win from ${opponent}. Competent enough to count, not memorable enough to admire. ${lineupNote}`
-      : `${team.name} gave ${opponent} the win and received no sympathy in return. Fair exchange. ${lineupNote}`,
-    team.lineupEfficiency < 72
-      ? `${team.name} asked ${opponent} to beat a badly managed lineup and was rewarded with the obvious outcome. ${lineupNote}`
-      : team.won
-        ? `${team.name} beat ${opponent}; tidy result, limited evidence of genius. ${lineupNote}`
-        : `${opponent} beat ${team.name}; tidy result, limited evidence of genius. ${lineupNote}`,
-    team.margin <= -30
-      ? `${team.name} was not outplayed by ${opponent} so much as thoroughly processed. ${lineupNote}`
-      : team.won
-        ? `${team.name} edged ${opponent} and can now pretend this was all part of the plan. ${lineupNote}`
-        : `${opponent} edged ${team.name}; pretending this was all part of the plan will not help. ${lineupNote}`,
-    team.won
-      ? `${opponent} supplied the resistance; ${team.name} supplied just enough competence. ${lineupNote}`
-      : `${opponent} won, ${team.name} lost, and the lineup review will not be a pleasant meeting. ${lineupNote}`,
-    team.lineupEfficiency < 72
-      ? `${team.name} selected poorly, invited ${opponent} to punish it, and got exactly that service. ${lineupNote}`
-      : team.won
-        ? `${team.name} got past ${opponent}. The table will record it; history will not. ${lineupNote}`
-        : `${opponent} got past ${team.name}. The table will record it; history will not. ${lineupNote}`,
-    scoreRank === teamCount
-      ? `${team.name} finished last, while ${opponent} needed only to turn up. ${lineupNote}`
-      : `${team.won ? team.name : opponent} won the argument with ${team.name}; the lineup was merely supporting evidence. ${lineupNote}`,
-  ];
-
-  return blurbs[Math.min(powerRank - 1, blurbs.length - 1)];
-}
-
-function teamAdvice(team: ReportTeam, powerRank: number) {
-  const benchMistake = team.bestBenchedPoints > team.weakestStarterPoints
-    ? ` Start ${team.bestBenchedPlayer} next week; leaving him on the bench is daft.`
-    : " Stop tinkering for the sake of it and trust a competent lineup.";
-  const nextOpponent = team.nextOpponentName;
-  const advice = [
-    `My advice: enjoy the win, then make a trade before everyone notices the cracks. You're facing ${nextOpponent} next week; they're beatable if you stop leaving points behind.${benchMistake}`,
-    `My advice: get on the waiver wire and find some depth. You're facing ${nextOpponent} next week, so bring more than one functioning plan.`,
-    `My advice: trade for a reliable starter. ${nextOpponent} is beatable, but you cannot keep asking the schedule to do the heavy lifting.`,
-    `My advice: add depth immediately. Against ${nextOpponent} next week, one injury turns this team into a group project with no adult supervision.`,
-    `My advice: stop being daft with the lineup and make the obvious start next week. ${nextOpponent} can be beaten; do not hand them the advantage.${benchMistake}`,
-    `My advice: find a trade partner before ${nextOpponent} turns this into another weekly exercise in damage control.`,
-    `My advice: use the waiver wire and improve the bench. ${nextOpponent} is not terrifying, but this roster is making a convincing case for them.`,
-    `My advice: make a move before facing ${nextOpponent}. Standing still is not a strategy; it is just losing with better posture.`,
-    `My advice: get some depth and a second opinion. ${nextOpponent} is beatable, provided you stop offering them free advantages.${benchMistake}`,
-    `My advice: stop chasing headlines and fix the lineup basics before ${nextOpponent} arrives. The obvious start would be a nice beginning.${benchMistake}`,
-    `My advice: trade aggressively for upside. ${nextOpponent} can be beaten, but there is not enough here to survive on good intentions.`,
-    `My advice: start again at the waiver wire, then make trades before ${nextOpponent} gets an easy win. This roster barely resembles a plan.`,
-  ];
-
-  return advice[Math.min(powerRank - 1, advice.length - 1)];
-}
-
 export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
-  const [leagueResult, rosterResult, userResult, playersResult, projectionsResult, wheelState, powerState, submissions] = await Promise.all([
-    getLeague(SLEEPER_LEAGUE_ID),
+  const league = await getLeague(SLEEPER_LEAGUE_ID) as SleeperLeague;
+  const [rosterResult, userResult, playersResult, projectionsResult, wheelState, powerState, submissions, transactions] = await Promise.all([
     getLeagueRosters(SLEEPER_LEAGUE_ID),
     getLeagueUsers(SLEEPER_LEAGUE_ID),
     getAllPlayers(),
-    getWeeklyPlayerProjections("2026", week),
+    getWeeklyPlayerProjections(league.season, week),
     getWheelState(),
     getPowerState(),
     getLadbrokesSubmissions(week),
+    getLeagueTransactions(SLEEPER_LEAGUE_ID, week)
+      .then((result) => Array.isArray(result) ? result as WeeklyTransaction[] : null)
+      .catch(() => null),
   ]);
-  const league = leagueResult as SleeperLeague;
   const rosters = rosterResult as SleeperRoster[];
   const users = userResult as SleeperUser[];
   const players = playersResult as Record<string, SleeperPlayer>;
@@ -290,7 +193,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
   }));
   const nextOpponentNames = new Map<number, string>();
   for (const matchup of nextWeekMatchups) {
-    const opponent = nextWeekMatchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
+    const opponent = matchup.matchup_id == null ? undefined : nextWeekMatchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
     nextOpponentNames.set(matchup.roster_id, rosterNames.get(opponent?.roster_id ?? 0)?.name ?? "your next opponent");
   }
   const seasonRecords = new Map<number, { wins: number; losses: number; points: number }>();
@@ -318,7 +221,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
 
   const scores = matchups.map((matchup) => matchup.points ?? 0);
   const rawTeams = matchups.map((matchup) => {
-    const opponent = matchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
+    const opponent = matchup.matchup_id == null ? undefined : matchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
     const score = matchup.points ?? 0;
     const opponentScore = opponent?.points ?? 0;
     const playerPoints = matchup.players_points ?? {};
@@ -355,8 +258,22 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       weakestStarterPoints: weakestStarter?.points ?? 0,
       powerIndex: 0,
       rankMovement: null,
-      blurb: "",
-      advice: "",
+      starters: (matchup.starters ?? []).filter((playerId) => playerId !== "0").map((playerId) => ({
+        playerId,
+        name: playerName(playerId, players),
+        points: playerPoints[playerId] ?? null,
+      })),
+      ...matchupSummary(
+        identity.name,
+        opponentIdentity?.name ?? "Bye week",
+        matchup,
+        opponent,
+        players,
+        league.roster_positions ?? [],
+        scores.filter((candidate) => candidate < score).length,
+        Math.max(0, matchups.length - 1),
+        nextOpponentNames.get(matchup.roster_id) ?? "your next opponent",
+      ),
       seasonWins: record.wins,
       seasonLosses: record.losses,
       seasonPoints: record.points,
@@ -369,19 +286,13 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
   const rankedRosterIds = [...rawTeams]
     .sort((left, right) => (currentIndexes.get(right.rosterId) ?? 0) - (currentIndexes.get(left.rosterId) ?? 0))
     .map((team) => team.rosterId);
-  const scoreRanks = new Map([...rawTeams].sort((left, right) => right.score - left.score).map((team, index) => [team.rosterId, index + 1]));
   const teams = rawTeams.map((team) => {
     const currentRank = rankedRosterIds.indexOf(team.rosterId) + 1;
     const previousRank = previousRanks.get(team.rosterId);
-    const rankedTeam = {
+    return {
       ...team,
       powerIndex: currentIndexes.get(team.rosterId) ?? 0,
       rankMovement: previousRank == null ? null : previousRank - currentRank,
-    };
-    return {
-      ...rankedTeam,
-      blurb: teamBlurb(rankedTeam, currentRank, scoreRanks.get(team.rosterId) ?? rawTeams.length, rawTeams.length),
-      advice: teamAdvice(rankedTeam, currentRank),
     };
   });
   const teamsByRoster = new Map(teams.map((team) => [team.rosterId, team]));
@@ -461,6 +372,14 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
     upset: upsets[0] ?? null,
     powerHolder: powerHolder ? { holderName: powerHolder.holderName, reason: powerHolder.reason } : null,
     wheel,
+    waiverPickup: {
+      available: transactions !== null,
+      winners: waiverPickupsOfWeek(transactions ?? [], matchups).map((pickup) => ({
+        ...pickup,
+        playerName: playerName(pickup.playerId, players),
+        managerName: rosterNames.get(pickup.rosterId)?.name ?? `Team ${pickup.rosterId}`,
+      })),
+    },
     ladbrokes: {
       winners: ladbrokesWinners.map((winner) => ({ displayName: winner.displayName, correct: winner.correct })),
       total: ladbrokesTotal,

@@ -25,3 +25,12 @@ export async function sharedDelete(key: string) {
   if (redis) await redis.del(key);
   else memoryStore.delete(key);
 }
+
+export async function sharedAcquireLock(key: string, seconds: number) {
+  const redis = redisClient();
+  if (redis) return await redis.set(key, true, { nx: true, ex: seconds }) === "OK";
+  const expiresAt = memoryStore.get(key);
+  if (typeof expiresAt === "number" && expiresAt > Date.now()) return false;
+  memoryStore.set(key, Date.now() + seconds * 1000);
+  return true;
+}

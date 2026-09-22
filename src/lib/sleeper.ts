@@ -32,6 +32,10 @@ export async function getLeagueMatchups(leagueId: string, week: number) {
   return sleeperGet(`/league/${leagueId}/matchups/${week}`);
 }
 
+export async function getLeagueTransactions(leagueId: string, week: number) {
+  return sleeperGet(`/league/${leagueId}/transactions/${week}`);
+}
+
 export async function getNFLState() {
   return sleeperGet("/state/nfl");
 }

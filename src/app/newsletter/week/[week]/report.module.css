@@ -68,6 +68,8 @@
 .rankingCopy small, .standings small { color: #94a59c; }
 .rankingCopy p { margin: 5px 0 0; color: #cbd4cf; font-size: 12px; line-height: 1.35; }
 .rankingAdvice { display: block; margin-top: 3px; color: #ff9a75; font-size: 11px; line-height: 1.3; }
+.sources { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 5px; font-size: 11px; }
+.sources a { color: #c8f135; text-decoration: underline; overflow-wrap: anywhere; }
 .movement { font: 900 13px/1 var(--font-display); text-align: center; }
 .movementUp { color: #c8f135; }.movementDown { color: #ff8254; }.movementNeutral { color: #7f9188; }
 .indexScore { display: grid; gap: 3px; color: #ffc857; font: 900 21px/1 var(--font-display); text-align: right; }
@@ -94,7 +96,7 @@
 .lmsGroup .eliminated b { color: #ff6b35; text-decoration: none; }
 .lmsWinner { margin-top: 12px; padding: 20px; display: grid; gap: 6px; text-align: center; border: 2px solid #c8f135; background: #182b20; }
 .lmsWinner strong { color: #c8f135; font: 900 36px/1 var(--font-display); text-transform: uppercase; }
-.sideQuests { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.sideQuests { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .sideQuests article { min-height: 142px; padding: 18px; color: #f7f4ea; background: #13241d; border-bottom: 4px solid #c8f135; }
 .sideQuests article:nth-child(2) { border-color: #ff6b35; }.sideQuests article:nth-child(3) { border-color: #ffc857; }
 .sideQuests p { color: #aebbb5; font-size: 12px; line-height: 1.4; }
@@ -112,7 +114,9 @@
   .metricStrip, .features, .sideQuests, .scoreboard { grid-template-columns: 1fr; }
   .metricStrip div { border-right: 0; border-bottom: 1px solid rgba(0,0,0,.2); }
   .playerList > div { grid-template-columns: 22px 1fr auto; }.playerList small { grid-column: 2 / -1; }
-  .rankingRow { grid-template-columns: 24px 42px 1fr 42px 36px; }.rankingCopy p { grid-column: 1 / -1; }
+  .rankingRow { grid-template-columns: 24px 42px minmax(0,1fr) 42px 36px; gap: 8px; }
+  .rankingCopy { grid-column: 3 / -1; overflow-wrap: anywhere; }
+  .movement { grid-column: 4; grid-row: 2; }.indexScore { grid-column: 5; grid-row: 2; }
   .lmsElimination { grid-template-columns: 64px 1fr; gap: 15px; padding: 18px; }.skull { width: 60px; height: 60px; font-size: 36px; }.lmsElimination h3 { font-size: 28px; }
   .lmsSummary, .lmsRoster { grid-template-columns: 1fr; }.lmsSummary div { border-right: 0; border-bottom: 1px solid #294037; }.lmsSummary div:last-child { border-bottom: 0; }
   .footer { padding: 28px 20px; grid-template-columns: 1fr; }.footer small { grid-column: auto; }

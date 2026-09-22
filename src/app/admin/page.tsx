@@ -15,6 +15,9 @@ export default function AdminPage() {
   const [editWinner, setEditWinner] = useState("Tee");
   const [editDetails, setEditDetails] = useState("Highest points on bench");
   const [wheelStatus, setWheelStatus] = useState("");
+  const [newsletterWeek, setNewsletterWeek] = useState(1);
+  const [newsletterStatus, setNewsletterStatus] = useState("");
+  const [newsletterBusy, setNewsletterBusy] = useState(false);
 
   const loadWheelState = async () => {
     const response = await fetch("/api/wheel", { cache: "no-store" });
@@ -51,6 +54,27 @@ export default function AdminPage() {
   const logout = async () => {
     await fetch("/api/admin/session", { method: "DELETE" });
     setIsAdmin(false);
+  };
+
+  const updateNewsletter = async (clear = false) => {
+    if (newsletterBusy) return;
+    setNewsletterBusy(true);
+    setNewsletterStatus(clear ? "Restoring factual copy..." : "Researching and writing...");
+    try {
+      const response = await fetch("/api/newsletter/commentary", {
+        method: clear ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ week: newsletterWeek }),
+      });
+      const result = await response.json() as { error?: string };
+      setNewsletterStatus(response.ok
+        ? `Week ${newsletterWeek}: ${clear ? "factual copy restored" : "AI copy saved"}.`
+        : result.error ?? "Could not update the newsletter.");
+    } catch {
+      setNewsletterStatus("Could not reach the server. Please try again.");
+    } finally {
+      setNewsletterBusy(false);
+    }
   };
 
   const selectEditWeek = (week: number) => {
@@ -164,6 +188,24 @@ export default function AdminPage() {
                   </form>
                 </section>
               )}
+              <section className="mt-8 border-t border-white/20 pt-6" aria-labelledby="newsletter-editor-title">
+                <p className="eyebrow">Newsletter</p>
+                <h2 id="newsletter-editor-title" className="mb-5 text-2xl font-bold text-white">Weekly Commentary</h2>
+                <form onSubmit={(event) => { event.preventDefault(); void updateNewsletter(); }} className="grid gap-4">
+                  <label className="grid max-w-xs gap-2 text-sm font-bold text-white">
+                    Week
+                    <select value={newsletterWeek} disabled={newsletterBusy} onChange={(event) => { setNewsletterWeek(Number(event.target.value)); setNewsletterStatus(""); }} className="wheel-admin-field">
+                      {Array.from({ length: 18 }, (_, index) => index + 1).map((week) => <option key={week} value={week}>Week {week}</option>)}
+                    </select>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button type="submit" disabled={newsletterBusy} className="tool-command px-5 py-3 disabled:opacity-50">{newsletterBusy ? "Working..." : "Generate AI copy"}</button>
+                    <button type="button" disabled={newsletterBusy} onClick={() => void updateNewsletter(true)} className="tool-command px-5 py-3 disabled:opacity-50">Use factual copy</button>
+                    <Link href={`/newsletter/week/${newsletterWeek}`} className="text-sm text-lime-300 underline">Open newsletter</Link>
+                  </div>
+                  {newsletterStatus && <p role="status" className="text-sm text-white/70">{newsletterStatus}</p>}
+                </form>
+              </section>
               <button type="button" onClick={logout} className="tool-command tool-command--danger mt-6 px-5 py-3">Log out</button>
             </div>
           ) : (

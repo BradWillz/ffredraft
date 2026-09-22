@@ -3,10 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getWeeklyReport, type ReportTeam } from "@/lib/weekly-report";
+import { getNewsletterCommentary } from "@/lib/newsletter-commentary";
 import PrintReportButton from "./PrintReportButton";
 import styles from "./report.module.css";
 
 type PageProps = { params: Promise<{ week: string }> };
+
+export const dynamic = "force-dynamic";
 
 function avatar(team: ReportTeam, size = 52) {
   return <Image src={`/avatars/${team.username}.jpg`} alt="" width={size} height={size} className={styles.avatar} />;
@@ -26,6 +29,8 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
   if (!Number.isInteger(week) || week < 1 || week > 18) notFound();
   const report = await getWeeklyReport(week);
   if (week > report.lastCompletedWeek) notFound();
+  const commentary = await getNewsletterCommentary(report);
+  const commentaryByRoster = new Map(commentary?.teams.map((team) => [team.rosterId, team]) ?? []);
   const headlineMargin = report.highestScorer.score - report.highestScorer.opponentScore;
 
   return (
@@ -56,11 +61,11 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
             <div className={styles.issue}>Issue {String(week).padStart(2, "0")} / {report.season}</div>
           </div>
           <p className={styles.kicker}>{report.leagueName} · Week {week} report</p>
-          <h1>Opening shots fired.</h1>
-          <p className={styles.deck}>{report.highestScorer.name} set the pace with {score(report.highestScorer.score)} points, while the first power index separates genuine form from opening-week noise.</p>
+          <h1>{week === 1 ? "Opening shots fired." : `Week ${week}: the verdict.`}</h1>
+          <p className={styles.deck}>{report.highestScorer.name} set the pace with {score(report.highestScorer.score)} points. The weekly review: who delivered, who left points behind, and what decided the matchups.</p>
           <div className={styles.heroStat}>
             {avatar(report.highestScorer, 76)}
-            <div><span>Score of the week</span><strong>{report.highestScorer.name}</strong><small>{score(report.highestScorer.score)} points · won by {score(Math.abs(headlineMargin))}</small></div>
+            <div><span>Score of the week</span><strong>{report.highestScorer.name}</strong><small>{score(report.highestScorer.score)} points · {report.highestScorer.opponentName === "Bye week" ? "bye week" : headlineMargin === 0 ? "tied" : `${headlineMargin > 0 ? "won" : "lost"} by ${score(Math.abs(headlineMargin))}`}</small></div>
             <b>{score(report.highestScorer.score)}</b>
           </div>
         </header>
@@ -112,6 +117,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
           <p className={styles.intro}>A weekly performance index blending score, winning margin, lineup efficiency, and all-play record. It rewards how well a team played, not just whether it escaped 1–0.</p>
           <div className={styles.rankings}>
             {report.powerRankings.map((team, index) => {
+              const copy = commentaryByRoster.get(team.rosterId);
               const movementLabel = team.rankMovement == null
                 ? null
                 : team.rankMovement > 0
@@ -130,8 +136,9 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
                 <div className={styles.rankingCopy}>
                   <strong>{team.name}</strong>
                   <small>{team.allPlayWins}–{report.powerRankings.length - 1 - team.allPlayWins} all-play · {team.lineupEfficiency.toFixed(0)}% efficiency</small>
-                  <p>{team.blurb}</p>
-                  <span className={styles.rankingAdvice}>{team.advice}</span>
+                  <p>{copy?.blurb ?? team.blurb}</p>
+                  <span className={styles.rankingAdvice}>{copy?.advice ?? team.advice}</span>
+                  {!!copy?.sources.length && <div className={styles.sources}>{copy.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a>)}</div>}
                 </div>
                 <span className={`${styles.movement} ${movementClass}`}>{movementLabel}</span>
                 <b className={styles.indexScore}><small>Index</small>{team.powerIndex}</b>
@@ -139,6 +146,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
             })}
           </div>
           <p className={styles.method}><strong>Power Index (0–100):</strong> 45% PF (your final weekly score) · 20% winning margin · 20% lineup efficiency · 15% all-play record. Arrows show movement from last week.</p>
+          {commentary && <p className={styles.method}>AI-assisted commentary · {new Date(commentary.generatedAt).toLocaleDateString("en-GB", { timeZone: "UTC" })}</p>}
         </section>
 
         <section className={`${styles.section} ${styles.pageBreak}`}>
@@ -176,6 +184,14 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
         <section className={styles.section}>
           <div className={styles.sectionHeading}><span>05</span><div><p>Around the league</p><h2>Side quests</h2></div></div>
           <div className={styles.sideQuests}>
+            <article>
+              <span>Waiver wire pickup of the week</span>
+              <h3>{report.waiverPickup.winners.length ? [...new Set(report.waiverPickup.winners.map((winner) => winner.managerName))].join(" · ") : report.waiverPickup.available ? "No qualifying pickups" : "Data unavailable"}</h3>
+              {report.waiverPickup.winners.map((winner) => <p key={`${winner.rosterId}:${winner.playerId}`}>{winner.managerName} · {winner.playerName} · {score(winner.points)} points · {winner.started ? "Started" : "Benched"}</p>)}
+              {!report.waiverPickup.available && <p>Sleeper transactions could not be loaded.</p>}
+              {report.waiverPickup.available && !report.waiverPickup.winners.length && <p>No scored waiver or free-agent additions on this week&apos;s rosters.</p>}
+              {report.waiverPickup.winners.length > 1 && <p>Shared honours.</p>}
+            </article>
             <article><span>The Power</span><h3>{report.powerHolder?.holderName ?? "Awaiting result"}</h3><p>{report.powerHolder?.reason ?? "Sleeper has not finalized this chapter."}</p></article>
             <article><span>Spin the Wheel</span><h3>{report.wheel?.scenario ?? "No result recorded"}</h3><p>{report.wheel?.winnerName ? `${report.wheel.winnerName} · ${report.wheel.details ?? "Winner recorded"}` : "Commissioner result pending."}</p></article>
             <article><span>Ladbrokes</span><h3>{report.ladbrokes.winners.length ? report.ladbrokes.winners.map((winner) => winner.displayName).join(" · ") : "No entries"}</h3><p>{report.ladbrokes.winners.length ? `${report.ladbrokes.winners[0].correct}/${report.ladbrokes.total} correct · joint winners of the weekly prediction card.` : "No locked entries were recorded."}</p></article>

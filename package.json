@@ -6,12 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:newsletter": "tsx --test src/lib/weekly-report-analysis.test.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.3",
     "csv-parse": "^7.0.2",
     "next": "16.1.1",
+    "openai": "^7.21.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
@@ -23,6 +25,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
