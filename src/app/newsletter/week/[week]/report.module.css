@@ -68,8 +68,6 @@
 .rankingCopy small, .standings small { color: #94a59c; }
 .rankingCopy p { margin: 5px 0 0; color: #cbd4cf; font-size: 12px; line-height: 1.35; }
 .rankingAdvice { display: block; margin-top: 3px; color: #ff9a75; font-size: 11px; line-height: 1.3; }
-.sources { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 5px; font-size: 11px; }
-.sources a { color: #c8f135; text-decoration: underline; overflow-wrap: anywhere; }
 .movement { font: 900 13px/1 var(--font-display); text-align: center; }
 .movementUp { color: #c8f135; }.movementDown { color: #ff8254; }.movementNeutral { color: #7f9188; }
 .indexScore { display: grid; gap: 3px; color: #ffc857; font: 900 21px/1 var(--font-display); text-align: right; }

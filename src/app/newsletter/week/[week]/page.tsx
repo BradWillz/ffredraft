@@ -138,7 +138,6 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
                   <small>{team.allPlayWins}–{report.powerRankings.length - 1 - team.allPlayWins} all-play · {team.lineupEfficiency.toFixed(0)}% efficiency</small>
                   <p>{copy?.blurb ?? team.blurb}</p>
                   <span className={styles.rankingAdvice}>{copy?.advice ?? team.advice}</span>
-                  {!!copy?.sources.length && <div className={styles.sources}>{copy.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a>)}</div>}
                 </div>
                 <span className={`${styles.movement} ${movementClass}`}>{movementLabel}</span>
                 <b className={styles.indexScore}><small>Index</small>{team.powerIndex}</b>

@@ -56,6 +56,7 @@ export type ReportTeam = {
   blurb: string;
   advice: string;
   starters: Array<{ playerId: string; name: string; points: number | null }>;
+  commentaryFacts: ReturnType<typeof matchupSummary>["commentaryFacts"];
   seasonWins: number;
   seasonLosses: number;
   seasonPoints: number;

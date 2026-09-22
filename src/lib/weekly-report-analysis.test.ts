@@ -67,6 +67,12 @@ test("summary distinguishes winning swaps, tying swaps, and insufficient swaps",
   assert.match(summary().blurb, /Starting WR led the lineup with 10.00/);
   assert.doesNotMatch(summary().blurb, /injured|Bench RB/);
   assert.doesNotMatch(summary().advice, /Start Bench WR next week/);
+  assert.equal(summary().commentaryFacts.bestDirectSwap?.effect, "would_win");
+  assert.equal(summary().commentaryFacts.bestDirectSwap?.gain, 10);
+  assert.equal(summary().commentaryFacts.bestDirectSwap?.resultingMargin, 1);
+  assert.equal(summary(110).commentaryFacts.bestDirectSwap?.effect, "would_tie");
+  assert.equal(summary(111).commentaryFacts.bestDirectSwap?.effect, "still_loses");
+  assert.equal(summary(90).commentaryFacts.bestDirectSwap?.effect, "won_despite_unused_points");
 });
 
 test("summary handles ties and byes without claiming a loss or win", () => {
@@ -74,6 +80,9 @@ test("summary handles ties and byes without claiming a loss or win", () => {
   const bye = matchupSummary("Manager", "Bye week", matchup, undefined, players, [], 5, 11, "Next rival");
   assert.match(bye.blurb, /no head-to-head opponent/);
   assert.doesNotMatch(bye.blurb, /beat Bye|lost to Bye/);
+  assert.equal(bye.commentaryFacts.result, "bye");
+  assert.equal(bye.commentaryFacts.bestDirectSwap, null);
+  assert.equal(bye.commentaryFacts.lineupAssessment, "no_higher_scoring_direct_swap_found");
 });
 
 test("pickup award includes completed waivers and free agents, bench scores, and ties", () => {
@@ -96,29 +105,28 @@ test("pickup award skips absent players and missing scores, but accepts zero", (
   assert.equal(waiverPickupsOfWeek(transactions, [{ ...matchup, players_points: { receiver: 0 } }])[0].points, 0);
 });
 
-test("AI commentary requires complete rosters and retrieved sources for injury context", () => {
-  const team = { rosterId: 1, blurb: "Manager won by 10.", advice: "Review the lineup.", sources: [] };
-  assert.equal(validateNewsletterCommentary({ teams: [team] }, [1], new Set()).length, 1);
-  assert.throws(() => validateNewsletterCommentary({ teams: [team, team] }, [1, 2], new Set()));
-  assert.throws(() => validateNewsletterCommentary({ teams: [team] }, [1, 2], new Set()));
-  assert.throws(() => validateNewsletterCommentary({ teams: [{ ...team, blurb: "The starter left the game injured." }] }, [1], new Set()));
-  const sourced = { ...team, blurb: "The starter left the game injured.", sources: [{ title: "Game report", url: "https://www.nfl.com/news/game-report" }] };
-  assert.throws(() => validateNewsletterCommentary({ teams: [sourced] }, [1], new Set()));
-  assert.equal(validateNewsletterCommentary({ teams: [sourced] }, [1], new Set([sourced.sources[0].url])).length, 1);
-  assert.throws(() => validateNewsletterCommentary({ teams: [{ ...team, blurb: "x".repeat(601) }] }, [1], new Set()));
+test("AI commentary requires complete rosters but no sources or injury citations", () => {
+  const team = { rosterId: 1, blurb: "Manager won by 10.", advice: "Next: Rival. Fix the lineup." };
+  assert.deepEqual(validateNewsletterCommentary({ teams: [team] }, [1]), [team]);
+  assert.throws(() => validateNewsletterCommentary({ teams: [team, team] }, [1, 2]));
+  assert.throws(() => validateNewsletterCommentary({ teams: [team] }, [1, 2]));
+  assert.equal(validateNewsletterCommentary({ teams: [{ ...team, blurb: "The starter left the game injured." }] }, [1]).length, 1);
+  const legacy = { ...team, sources: [{ title: "Report", url: "not-a-verified-url" }] };
+  assert.deepEqual(validateNewsletterCommentary({ teams: [legacy] }, [1]), [team]);
+  assert.throws(() => validateNewsletterCommentary({ teams: [{ ...team, blurb: "x".repeat(601) }] }, [1]));
 });
 
-test("validation diagnostics identify every roster and citation failure without changing rejection rules", () => {
+test("validation diagnostics identify roster and text failures without citation gating", () => {
   const errors = mock.method(console, "error", () => {});
   const info = mock.method(console, "info", () => {});
-  const team = { rosterId: 1, blurb: "Manager won.", advice: "Review the lineup.", sources: [] };
+  const team = { rosterId: 1, blurb: "Manager won.", advice: "Review the lineup." };
   try {
     assert.throws(() => validateNewsletterCommentary({ teams: [
       { ...team, blurb: "x".repeat(601) },
       { ...team, rosterId: 2 },
       { ...team, rosterId: 3, sources: [{ title: "Report", url: "https://example.com/unretrieved?token=private" }] },
       { ...team, rosterId: 4, blurb: "The starter was injured." },
-    ] }, [1, 2, 3, 4, 5], new Set(), { requestId: "validation-test", week: 2 }, new Map([[1, 3]])), (error: unknown) => {
+    ] }, [1, 2, 3, 4, 5], { requestId: "validation-test", week: 2 }, new Map([[1, 3]])), (error: unknown) => {
       assert.ok(error instanceof CommentaryDiagnosticError);
       assert.equal(error.stage, "validation");
       assert.equal(error.reason, "matchup 3, roster 1: blurb length 601 exceeds 600 characters");
@@ -126,9 +134,9 @@ test("validation diagnostics identify every roster and citation failure without 
     });
     const entries = [...errors.mock.calls, ...info.mock.calls].map((call) => JSON.parse(call.arguments[0] as string));
     assert.ok(entries.some((entry) => entry.rosterId === 2 && entry.event === "passed"));
-    for (const rosterId of [1, 3, 4, 5]) assert.ok(entries.some((entry) => entry.rosterId === rosterId && entry.event === "failed"));
-    assert.ok(entries.some((entry) => entry.stage === "citations" && entry.reason.includes("not present in retrieved citations")));
-    assert.ok(entries.some((entry) => entry.reason?.includes("unverifiable injury claim")));
+    for (const rosterId of [1, 5]) assert.ok(entries.some((entry) => entry.rosterId === rosterId && entry.event === "failed"));
+    for (const rosterId of [3, 4]) assert.ok(entries.some((entry) => entry.rosterId === rosterId && entry.event === "passed"));
+    assert.ok(entries.every((entry) => entry.stage !== "citations"));
     assert.doesNotMatch(JSON.stringify(entries), /example.com|token=private/);
   } finally {
     errors.mock.restore();
@@ -144,16 +152,19 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
   const report = {
     season: "2026",
     week: 1,
-    powerRankings: [{ rosterId: 1, name: "Manager", opponentName: "Rival", score: 100, opponentScore: 90, nextOpponentName: "Next rival", blurb: "Manager won by 10.", starters: [] }],
+    powerRankings: [{ rosterId: 1, name: "Manager", opponentName: "Rival", score: 100, opponentScore: 109, nextOpponentName: "Next rival", blurb: summary().blurb, starters: [], commentaryFacts: summary().commentaryFacts, lineupEfficiency: 82.5, benchPoints: 50, bestBenchedPlayer: "Bench RB", bestBenchedPoints: 30, weakestStarter: "Starting QB", weakestStarterPoints: 2, powerIndex: 70, rankMovement: -2, allPlayWins: 5 }],
   } as unknown as WeeklyReport;
-  const teams = [{ rosterId: 1, blurb: "Manager won by 10.", advice: "Review the lineup.", sources: [] }];
+  const teams = [{ rosterId: 1, blurb: "Manager lost 100 to 109. Bench WR could have saved this one.", advice: "Next: Next rival. Fix that receiver slot." }];
   let fail = false;
   let outputText = JSON.stringify({ teams });
   let responseStatus = "completed";
   const diagnostics = { requestId: "generation-test", week: 1 };
   const info = mock.method(console, "info", () => {});
   const errors = mock.method(console, "error", () => {});
-  const fetchMock = mock.method(globalThis, "fetch", async () => fail
+  let requestBody = "";
+  const fetchMock = mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    requestBody = await new Request(input, init).text();
+    return fail
     ? new Response(JSON.stringify({ error: { message: "Test failure", type: "invalid_request_error" } }), { status: 401, headers: { "Content-Type": "application/json" } })
     : new Response(JSON.stringify({
       id: "test-response",
@@ -161,10 +172,26 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
       status: responseStatus,
       text: { format: { type: "json_schema" } },
       output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: outputText, annotations: [] }] }],
-    }), { headers: { "Content-Type": "application/json" } }));
+    }), { headers: { "Content-Type": "application/json" } });
+  });
   try {
     const first = await generateNewsletterCommentary(report, diagnostics);
     assert.deepEqual(first.teams, teams);
+    const request = JSON.parse(requestBody);
+    const facts = JSON.parse(request.input);
+    assert.equal(facts.teams.length, report.powerRankings.length);
+    assert.deepEqual(facts.teams[0].matchup, report.powerRankings[0].commentaryFacts);
+    for (const field of ["score", "opponentScore", "lineupEfficiency", "benchPoints", "powerIndex", "rankMovement", "allPlayWins"] as const) {
+      assert.equal(facts.teams[0][field], report.powerRankings[0][field]);
+    }
+    assert.equal(facts.teams[0].bestBenchedPlayer.points, 30);
+    assert.equal(facts.teams[0].nextOpponent, "Next rival");
+    assert.equal(request.tool_choice, "auto");
+    assert.equal(request.include, undefined);
+    assert.deepEqual(Object.keys(request.text.format.schema.properties.teams.items.properties), ["rosterId", "blurb", "advice"]);
+    assert.match(request.instructions, /Never alter, recalculate, round, estimate or invent/);
+    assert.match(request.instructions, /silently omit it and complete every blurb/);
+    assert.match(request.instructions, /Vary openings, rhythm, jokes and focus across ALL teams/);
     assert.deepEqual(await generateNewsletterCommentary(report), first);
     assert.equal(fetchMock.mock.callCount(), 1);
     const corrected = { ...report, powerRankings: report.powerRankings.map((team) => ({ ...team, score: 101 })) };
@@ -194,6 +221,12 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
     }
     responseStatus = "incomplete";
     await assert.rejects(generateNewsletterCommentary(report, diagnostics), (error: unknown) => error instanceof CommentaryDiagnosticError && error.stage === "openai_response");
+    responseStatus = "completed";
+    outputText = JSON.stringify({ teams: [{ ...teams[0], blurb: "The starter left the game injured, but the bench couldn't rescue this lineup." }] });
+    const injuryCopy = await generateNewsletterCommentary(report, diagnostics);
+    assert.equal(injuryCopy.teams[0].blurb, JSON.parse(outputText).teams[0].blurb);
+    assert.deepEqual(Object.keys(injuryCopy.teams[0]), ["rosterId", "blurb", "advice"]);
+    await clearNewsletterCommentary(report);
     const entries = [...info.mock.calls, ...errors.mock.calls].map((call) => JSON.parse(call.arguments[0] as string));
     assert.ok(entries.some((entry) => entry.requestId === "generation-test" && entry.event === "response" && entry.responseId === "test-response" && entry.httpStatus === 200 && entry.outputTextLength > 0));
     assert.ok(entries.some((entry) => entry.stage === "openai" && entry.httpStatus === 401 && entry.event === "failed"));

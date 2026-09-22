@@ -106,7 +106,27 @@ export function matchupSummary(
   const advice = swap
     ? `Next up: ${nextOpponentName}. Review the ${reportPlayerName(swap.incomingId, players)} decision, but check availability and the matchup before chasing last week's points.`
     : `Next up: ${nextOpponentName}. No higher-scoring direct bench swap was found in the available lineup data; check injuries and byes before setting the next lineup.`;
-  return { blurb: [result, leader, verdict].filter(Boolean).join(" "), advice };
+  return {
+    blurb: [result, leader, verdict].filter(Boolean).join(" "),
+    advice,
+    commentaryFacts: {
+      result: !opponent ? "bye" : margin === 0 ? "tie" : margin > 0 ? "win" : "loss",
+      margin,
+      leadingScorer: topStarter ? { name: reportPlayerName(topStarter.playerId, players), points: topStarter.points } : null,
+      bestDirectSwap: swap ? {
+        incoming: reportPlayerName(swap.incomingId, players),
+        outgoing: swap.outgoingId === "0" ? "the empty slot" : reportPlayerName(swap.outgoingId, players),
+        incomingPoints: swap.incomingPoints,
+        outgoingPoints: swap.outgoingPoints,
+        gain: swap.gain,
+        resultingMargin: opponent ? Math.round((margin + swap.gain) * 100) / 100 : null,
+        effect: !opponent ? "bye" : margin > 0 ? "won_despite_unused_points"
+          : Math.round((margin + swap.gain) * 100) > 0 ? "would_win"
+            : Math.round((margin + swap.gain) * 100) === 0 ? "would_tie" : "still_loses",
+      } : null,
+      lineupAssessment: swap ? "higher_scoring_direct_swap_available" : "no_higher_scoring_direct_swap_found",
+    },
+  };
 }
 
 export function waiverPickupsOfWeek(transactions: WeeklyTransaction[], matchups: WeeklyMatchup[]) {
