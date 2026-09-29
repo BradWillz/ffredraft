@@ -35,6 +35,7 @@ function newsletterFacts(report: WeeklyReport) {
       weakestStarter: { name: team.weakestStarter, points: team.weakestStarterPoints },
       allPlayWins: team.allPlayWins,
       otherTeams: report.powerRankings.length - 1,
+      seasonRecord: { wins: team.seasonWins, losses: team.seasonLosses, pointsFor: team.seasonPoints },
       powerRank: index + 1,
       powerIndex: team.powerIndex,
       powerRankDefinition: "Season-to-date power ranking accumulated across every week played, not a single-week ranking",

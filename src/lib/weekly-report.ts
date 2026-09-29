@@ -132,7 +132,7 @@ function playerName(playerId: string, players: Record<string, SleeperPlayer>) {
 // Season-long power index: every completed week is accumulated, so ranks shift week to week
 // rather than resetting to a single week's results.
 function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
-  const totals = new Map<number, { points: number; margin: number; scored: number; available: number; allPlayWins: number; allPlayGames: number }>();
+  const totals = new Map<number, { points: number; margin: number; scored: number; available: number; allPlayWins: number; allPlayGames: number; wins: number; ties: number; games: number }>();
   for (const matchups of weeklyMatchups) {
     const scores = matchups.map((matchup) => matchup.points ?? 0);
     for (const matchup of matchups) {
@@ -142,13 +142,18 @@ function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
       const score = matchup.points ?? 0;
       const playerPoints = matchup.players_points ?? {};
       const availablePoints = (matchup.players ?? []).reduce((total, id) => total + Math.max(0, playerPoints[id] ?? 0), 0);
-      const team = totals.get(matchup.roster_id) ?? { points: 0, margin: 0, scored: 0, available: 0, allPlayWins: 0, allPlayGames: 0 };
+      const team = totals.get(matchup.roster_id) ?? { points: 0, margin: 0, scored: 0, available: 0, allPlayWins: 0, allPlayGames: 0, wins: 0, ties: 0, games: 0 };
       team.points += score;
       team.margin += score - (opponent?.points ?? score);
       team.scored += score;
       team.available += availablePoints;
       team.allPlayWins += scores.filter((candidate) => candidate < score).length;
       team.allPlayGames += Math.max(0, matchups.length - 1);
+      if (opponent) {
+        team.games += 1;
+        if (score > (opponent.points ?? 0)) team.wins += 1;
+        else if (score === (opponent.points ?? 0)) team.ties += 1;
+      }
       totals.set(matchup.roster_id, team);
     }
   }
@@ -159,6 +164,7 @@ function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
     margin: team.margin,
     lineupEfficiency: team.available > 0 ? Math.min(100, team.scored / team.available * 100) : 0,
     allPlayRate: team.allPlayGames > 0 ? team.allPlayWins / team.allPlayGames * 100 : 0,
+    winRate: team.games > 0 ? (team.wins + team.ties * 0.5) / team.games * 100 : 0,
   }));
   const points = metrics.map((team) => team.points);
   const margins = metrics.map((team) => team.margin);
@@ -166,9 +172,10 @@ function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
   return metrics.map((team) => ({
     rosterId: team.rosterId,
     powerIndex: Math.round(
-      percentile(team.points, points) * 0.45
-      + percentile(team.margin, margins) * 0.2
-      + percentile(team.lineupEfficiency, efficiencies) * 0.2
+      percentile(team.points, points) * 0.35
+      + team.winRate * 0.2
+      + percentile(team.margin, margins) * 0.15
+      + percentile(team.lineupEfficiency, efficiencies) * 0.15
       + team.allPlayRate * 0.15,
     ),
   })).sort((left, right) => right.powerIndex - left.powerIndex);
