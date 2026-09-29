@@ -44,6 +44,10 @@ export async function getWeeklyPlayerProjections(season: string, week: number) {
   return sleeperGet(`/projections/nfl/regular/${season}/${week}`);
 }
 
+export async function getWeeklyPlayerStats(season: string, week: number) {
+  return sleeperGet(`/stats/nfl/regular/${season}/${week}`);
+}
+
 // Winners bracket = playoff tree
 export async function getWinnersBracket(leagueId: string) {
   return sleeperGet(`/league/${leagueId}/winners_bracket`);

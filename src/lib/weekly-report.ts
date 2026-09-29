@@ -2,6 +2,7 @@ import { SLEEPER_LEAGUE_ID } from "./config";
 import { scoreLadbrokesWeek, getLadbrokesSubmissions } from "./ladbrokes";
 import { getDisplayName, normalizeUsername } from "./normalize-username";
 import { getPowerState } from "./power";
+import { calculateWheelWinner } from "./wheel-winner";
 import {
   getAllPlayers,
   getLeague,
@@ -128,30 +129,47 @@ function playerName(playerId: string, players: Record<string, SleeperPlayer>) {
     || playerId;
 }
 
-function weeklyPowerIndexes(matchups: SleeperMatchup[]) {
-  const scores = matchups.map((matchup) => matchup.points ?? 0);
-  const metrics = matchups.map((matchup) => {
-    const opponent = matchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
-    const score = matchup.points ?? 0;
-    const playerPoints = matchup.players_points ?? {};
-    const availablePoints = (matchup.players ?? []).reduce((total, id) => total + Math.max(0, playerPoints[id] ?? 0), 0);
-    return {
-      rosterId: matchup.roster_id,
-      score,
-      margin: score - (opponent?.points ?? 0),
-      lineupEfficiency: availablePoints > 0 ? Math.min(100, score / availablePoints * 100) : 0,
-      allPlayWins: scores.filter((candidate) => candidate < score).length,
-    };
-  });
+// Season-long power index: every completed week is accumulated, so ranks shift week to week
+// rather than resetting to a single week's results.
+function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
+  const totals = new Map<number, { points: number; margin: number; scored: number; available: number; allPlayWins: number; allPlayGames: number }>();
+  for (const matchups of weeklyMatchups) {
+    const scores = matchups.map((matchup) => matchup.points ?? 0);
+    for (const matchup of matchups) {
+      const opponent = matchup.matchup_id == null
+        ? undefined
+        : matchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
+      const score = matchup.points ?? 0;
+      const playerPoints = matchup.players_points ?? {};
+      const availablePoints = (matchup.players ?? []).reduce((total, id) => total + Math.max(0, playerPoints[id] ?? 0), 0);
+      const team = totals.get(matchup.roster_id) ?? { points: 0, margin: 0, scored: 0, available: 0, allPlayWins: 0, allPlayGames: 0 };
+      team.points += score;
+      team.margin += score - (opponent?.points ?? score);
+      team.scored += score;
+      team.available += availablePoints;
+      team.allPlayWins += scores.filter((candidate) => candidate < score).length;
+      team.allPlayGames += Math.max(0, matchups.length - 1);
+      totals.set(matchup.roster_id, team);
+    }
+  }
+
+  const metrics = [...totals.entries()].map(([rosterId, team]) => ({
+    rosterId,
+    points: team.points,
+    margin: team.margin,
+    lineupEfficiency: team.available > 0 ? Math.min(100, team.scored / team.available * 100) : 0,
+    allPlayRate: team.allPlayGames > 0 ? team.allPlayWins / team.allPlayGames * 100 : 0,
+  }));
+  const points = metrics.map((team) => team.points);
   const margins = metrics.map((team) => team.margin);
   const efficiencies = metrics.map((team) => team.lineupEfficiency);
   return metrics.map((team) => ({
     rosterId: team.rosterId,
     powerIndex: Math.round(
-      percentile(team.score, scores) * 0.45
+      percentile(team.points, points) * 0.45
       + percentile(team.margin, margins) * 0.2
       + percentile(team.lineupEfficiency, efficiencies) * 0.2
-      + team.allPlayWins / Math.max(1, metrics.length - 1) * 100 * 0.15,
+      + team.allPlayRate * 0.15,
     ),
   })).sort((left, right) => right.powerIndex - left.powerIndex);
 }
@@ -280,9 +298,9 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       seasonPoints: record.points,
     } satisfies ReportTeam;
   });
-  const currentIndexes = new Map(weeklyPowerIndexes(matchups).map((team) => [team.rosterId, team.powerIndex]));
+  const currentIndexes = new Map(seasonPowerIndexes(weeklyMatchups).map((team) => [team.rosterId, team.powerIndex]));
   const previousRanks = week > 1
-    ? new Map(weeklyPowerIndexes(weeklyMatchups[week - 2]).map((team, index) => [team.rosterId, index + 1]))
+    ? new Map(seasonPowerIndexes(weeklyMatchups.slice(0, week - 1)).map((team, index) => [team.rosterId, index + 1]))
     : new Map<number, number>();
   const rankedRosterIds = [...rawTeams]
     .sort((left, right) => (currentIndexes.get(right.rosterId) ?? 0) - (currentIndexes.get(left.rosterId) ?? 0))
@@ -325,8 +343,15 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
   }).sort((left, right) => right.projectionGap - left.projectionGap);
   const wheelResult = wheelState.weekResults.find((result) => result.week === week);
   const wheelWinner = wheelState.weekWinners.find((winner) => winner.week === week);
+  const autoWheelWinner = wheelResult && !wheelWinner
+    ? await calculateWheelWinner(week, wheelResult.scenario).catch(() => null)
+    : null;
   const wheel = wheelResult
-    ? { scenario: wheelResult.scenario, winnerName: wheelWinner?.winnerName, details: wheelWinner?.details }
+    ? {
+      scenario: wheelResult.scenario,
+      winnerName: wheelWinner?.winnerName ?? autoWheelWinner?.winnerName,
+      details: wheelWinner?.details ?? autoWheelWinner?.details,
+    }
     : week === 1
       ? { scenario: "Highest Bench Score", winnerName: "Tee", details: "Highest points on bench" }
       : null;

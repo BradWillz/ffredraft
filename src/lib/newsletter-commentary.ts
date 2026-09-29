@@ -37,6 +37,7 @@ function newsletterFacts(report: WeeklyReport) {
       otherTeams: report.powerRankings.length - 1,
       powerRank: index + 1,
       powerIndex: team.powerIndex,
+      powerRankDefinition: "Season-to-date power ranking accumulated across every week played, not a single-week ranking",
       rankMovement: team.rankMovement,
     })),
   };

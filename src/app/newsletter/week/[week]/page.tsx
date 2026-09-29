@@ -114,7 +114,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
 
         <section className={styles.section}>
           <div className={styles.sectionHeading}><span>03</span><div><p>Form table</p><h2>Power rankings</h2></div></div>
-          <p className={styles.intro}>A weekly performance index blending score, winning margin, lineup efficiency, and all-play record. It rewards how well a team played, not just whether it escaped 1–0.</p>
+          <p className={styles.intro}>A season-long performance index blending total points, cumulative winning margin, lineup efficiency, and all-play record across every week played. It rewards how well a team has played all year, not just whether it escaped 1–0.</p>
           <div className={styles.rankings}>
             {report.powerRankings.map((team, index) => {
               const copy = commentaryByRoster.get(team.rosterId);
@@ -135,7 +135,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
                 {avatar(team, 42)}
                 <div className={styles.rankingCopy}>
                   <strong>{team.name}</strong>
-                  <small>{team.allPlayWins}–{report.powerRankings.length - 1 - team.allPlayWins} all-play · {team.lineupEfficiency.toFixed(0)}% efficiency</small>
+                  <small>{team.allPlayWins}–{report.powerRankings.length - 1 - team.allPlayWins} all-play this week · {team.lineupEfficiency.toFixed(0)}% efficiency</small>
                   <p>{copy?.blurb ?? team.blurb}</p>
                   <span className={styles.rankingAdvice}>{copy?.advice ?? team.advice}</span>
                 </div>
@@ -144,7 +144,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
               </div>
             })}
           </div>
-          <p className={styles.method}><strong>Power Index (0–100):</strong> 45% PF (your final weekly score) · 20% winning margin · 20% lineup efficiency · 15% all-play record. Arrows show movement from last week.</p>
+          <p className={styles.method}><strong>Power Index (0–100), season to date:</strong> 45% total points for · 20% cumulative margin · 20% season lineup efficiency · 15% all-play record. Arrows show movement from last week&apos;s season rankings.</p>
           {commentary && <p className={styles.method}>AI-assisted commentary · {new Date(commentary.generatedAt).toLocaleDateString("en-GB", { timeZone: "UTC" })}</p>}
         </section>
 
