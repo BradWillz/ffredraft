@@ -4,6 +4,63 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { WHEEL_SCENARIOS, type WheelState } from "@/lib/wheel-state";
 
+type NewsletterLeague = "redraft" | "dynasty";
+
+const NEWSLETTER_LEAGUES: Record<NewsletterLeague, { label: string; path: string }> = {
+  redraft: { label: "Redraft", path: "/newsletter/week" },
+  dynasty: { label: "Dynastry of Darkness", path: "/dynastry-of-darkness/newsletter/week" },
+};
+
+function CommentaryPanel({ league }: { league: NewsletterLeague }) {
+  const [week, setWeek] = useState(1);
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { label, path } = NEWSLETTER_LEAGUES[league];
+
+  const update = async (clear = false) => {
+    if (busy) return;
+    setBusy(true);
+    setStatus(clear ? "Restoring factual copy..." : "Researching and writing...");
+    try {
+      const response = await fetch("/api/newsletter/commentary", {
+        method: clear ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ week, league }),
+      });
+      const result = await response.json() as { error?: string; stage?: string; reason?: string; requestId?: string };
+      setStatus(response.ok
+        ? `${label} Week ${week}: ${clear ? "factual copy restored" : "AI copy saved"}.`
+        : [
+          result.error ?? "Could not update the newsletter.",
+          result.reason ? `${result.stage ? `[${result.stage}] ` : ""}${result.reason}` : "",
+          result.requestId ? `Request: ${result.requestId}` : "",
+        ].filter(Boolean).join(" "));
+    } catch {
+      setStatus("Could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form id={`newsletter-panel-${league}`} role="tabpanel" onSubmit={(event) => { event.preventDefault(); void update(); }} className="grid gap-4">
+      <p className="text-sm text-white/70">Writes the power-ranking blurbs for the <strong className="text-white">{label}</strong> newsletter only. Saved copy is kept separate from the other league.</p>
+      <label className="grid max-w-xs gap-2 text-sm font-bold text-white">
+        Week
+        <select value={week} disabled={busy} onChange={(event) => { setWeek(Number(event.target.value)); setStatus(""); }} className="wheel-admin-field">
+          {Array.from({ length: 18 }, (_, index) => index + 1).map((option) => <option key={option} value={option}>Week {option}</option>)}
+        </select>
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={busy} className="tool-command px-5 py-3 disabled:opacity-50">{busy ? "Working..." : `Generate ${label} AI copy`}</button>
+        <button type="button" disabled={busy} onClick={() => void update(true)} className="tool-command px-5 py-3 disabled:opacity-50">Use factual copy</button>
+        <Link href={`${path}/${week}`} className="text-sm text-lime-300 underline">Open {label} newsletter</Link>
+      </div>
+      {status && <p role="status" className="text-sm text-white/70">{status}</p>}
+    </form>
+  );
+}
+
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [password, setPassword] = useState("");
@@ -15,9 +72,7 @@ export default function AdminPage() {
   const [editWinner, setEditWinner] = useState("Tee");
   const [editDetails, setEditDetails] = useState("Highest points on bench");
   const [wheelStatus, setWheelStatus] = useState("");
-  const [newsletterWeek, setNewsletterWeek] = useState(1);
-  const [newsletterStatus, setNewsletterStatus] = useState("");
-  const [newsletterBusy, setNewsletterBusy] = useState(false);
+  const [newsletterLeague, setNewsletterLeague] = useState<NewsletterLeague>("redraft");
 
   const loadWheelState = async () => {
     const response = await fetch("/api/wheel", { cache: "no-store" });
@@ -54,31 +109,6 @@ export default function AdminPage() {
   const logout = async () => {
     await fetch("/api/admin/session", { method: "DELETE" });
     setIsAdmin(false);
-  };
-
-  const updateNewsletter = async (clear = false) => {
-    if (newsletterBusy) return;
-    setNewsletterBusy(true);
-    setNewsletterStatus(clear ? "Restoring factual copy..." : "Researching and writing...");
-    try {
-      const response = await fetch("/api/newsletter/commentary", {
-        method: clear ? "DELETE" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ week: newsletterWeek }),
-      });
-      const result = await response.json() as { error?: string; stage?: string; reason?: string; requestId?: string };
-      setNewsletterStatus(response.ok
-        ? `Week ${newsletterWeek}: ${clear ? "factual copy restored" : "AI copy saved"}.`
-        : [
-          result.error ?? "Could not update the newsletter.",
-          result.reason ? `${result.stage ? `[${result.stage}] ` : ""}${result.reason}` : "",
-          result.requestId ? `Request: ${result.requestId}` : "",
-        ].filter(Boolean).join(" "));
-    } catch {
-      setNewsletterStatus("Could not reach the server. Please try again.");
-    } finally {
-      setNewsletterBusy(false);
-    }
   };
 
   const selectEditWeek = (week: number) => {
@@ -194,21 +224,25 @@ export default function AdminPage() {
               )}
               <section className="mt-8 border-t border-white/20 pt-6" aria-labelledby="newsletter-editor-title">
                 <p className="eyebrow">Newsletter</p>
-                <h2 id="newsletter-editor-title" className="mb-5 text-2xl font-bold text-white">Weekly Commentary</h2>
-                <form onSubmit={(event) => { event.preventDefault(); void updateNewsletter(); }} className="grid gap-4">
-                  <label className="grid max-w-xs gap-2 text-sm font-bold text-white">
-                    Week
-                    <select value={newsletterWeek} disabled={newsletterBusy} onChange={(event) => { setNewsletterWeek(Number(event.target.value)); setNewsletterStatus(""); }} className="wheel-admin-field">
-                      {Array.from({ length: 18 }, (_, index) => index + 1).map((week) => <option key={week} value={week}>Week {week}</option>)}
-                    </select>
-                  </label>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button type="submit" disabled={newsletterBusy} className="tool-command px-5 py-3 disabled:opacity-50">{newsletterBusy ? "Working..." : "Generate AI copy"}</button>
-                    <button type="button" disabled={newsletterBusy} onClick={() => void updateNewsletter(true)} className="tool-command px-5 py-3 disabled:opacity-50">Use factual copy</button>
-                    <Link href={`/newsletter/week/${newsletterWeek}`} className="text-sm text-lime-300 underline">Open newsletter</Link>
-                  </div>
-                  {newsletterStatus && <p role="status" className="text-sm text-white/70">{newsletterStatus}</p>}
-                </form>
+                <h2 id="newsletter-editor-title" className="mb-4 text-2xl font-bold text-white">Weekly Commentary</h2>
+                <div role="tablist" aria-label="Newsletter league" className="mb-5 flex flex-wrap gap-2">
+                  {(Object.keys(NEWSLETTER_LEAGUES) as NewsletterLeague[]).map((league) => (
+                    <button
+                      key={league}
+                      type="button"
+                      role="tab"
+                      aria-selected={newsletterLeague === league}
+                      aria-controls={`newsletter-panel-${league}`}
+                      onClick={() => setNewsletterLeague(league)}
+                      className={`tool-command px-4 py-2 ${newsletterLeague === league ? "" : "opacity-50"}`}
+                    >
+                      {NEWSLETTER_LEAGUES[league].label}
+                    </button>
+                  ))}
+                </div>
+                {(Object.keys(NEWSLETTER_LEAGUES) as NewsletterLeague[]).map((league) => (
+                  <div key={league} hidden={newsletterLeague !== league}><CommentaryPanel league={league} /></div>
+                ))}
               </section>
               <button type="button" onClick={logout} className="tool-command tool-command--danger mt-6 px-5 py-3">Log out</button>
             </div>

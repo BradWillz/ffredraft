@@ -159,6 +159,17 @@ test("pick ownership rewinds later trades and draft order uses max PF then rever
   ]);
 });
 
+test("commentary validation rejects any mention of kickers", () => {
+  const logger = mock.method(console, "error", () => {});
+  try {
+    assert.throws(() => validateNewsletterCommentary({ teams: [{ rosterId: 1, blurb: "Even his kicker outscored the flex.", advice: "Beat Tee." }] }, [1]), /kickers/);
+    assert.throws(() => validateNewsletterCommentary({ teams: [{ rosterId: 1, blurb: "Won by a field goal.", advice: "Beat Tee." }] }, [1]), /kickers/);
+    assert.equal(validateNewsletterCommentary({ teams: [{ rosterId: 1, blurb: "Bench points piled up.", advice: "Beat Tee." }] }, [1]).length, 1);
+  } finally {
+    logger.mock.restore();
+  }
+});
+
 test("league scoring applies custom settings to raw stats", () => {
   assert.equal(leagueScoredPoints({ rec: 5, rec_yd: 63, rec_td: 1, fum_lost: 1 }, { rec: 0.5, rec_yd: 0.1, rec_td: 6, fum_lost: -2 }), 12.8);
   assert.equal(leagueScoredPoints(undefined, { rec: 1 }), null);

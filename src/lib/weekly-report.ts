@@ -1,4 +1,4 @@
-import { SLEEPER_LEAGUE_ID } from "./config";
+import { DYNASTRY_LEAGUE_ID, SLEEPER_LEAGUE_ID } from "./config";
 import { scoreLadbrokesWeek, getLadbrokesSubmissions } from "./ladbrokes";
 import { getDisplayName, normalizeUsername } from "./normalize-username";
 import { getPowerState } from "./power";
@@ -75,6 +75,8 @@ export type ReportTeam = {
 
 export type WeeklyReport = {
   leagueName: string;
+  // Keeps saved AI commentary for other leagues apart from Redraft's existing cache keys.
+  commentaryNamespace?: string;
   season: string;
   week: number;
   lastCompletedWeek: number;
@@ -245,9 +247,11 @@ export type ReportLeague = {
   sideGames: boolean;
   playoffByRecord: number;
   rookieDraft: boolean;
+  commentaryNamespace?: string;
 };
 
 export const REDRAFT_REPORT_LEAGUE: ReportLeague = { leagueId: SLEEPER_LEAGUE_ID, sideGames: true, playoffByRecord: 5, rookieDraft: false };
+export const DYNASTRY_REPORT_LEAGUE: ReportLeague = { leagueId: DYNASTRY_LEAGUE_ID, sideGames: false, playoffByRecord: 5, rookieDraft: true, commentaryNamespace: "dynasty" };
 
 export async function getWeeklyReport(week: number, reportLeague: ReportLeague = REDRAFT_REPORT_LEAGUE): Promise<WeeklyReport> {
   const { leagueId, sideGames } = reportLeague;
@@ -550,6 +554,7 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
 
   return {
     leagueName: league.name ?? "Left, Down, Wide to the Right, Up",
+    commentaryNamespace: reportLeague.commentaryNamespace,
     season: league.season,
     week,
     lastCompletedWeek: Number(league.settings?.last_scored_leg ?? 0),

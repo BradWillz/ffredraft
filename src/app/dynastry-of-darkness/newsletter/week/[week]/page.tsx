@@ -2,16 +2,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DYNASTRY_LEAGUE_ID } from "@/lib/config";
-import { getWeeklyReport, type ReportLeague, type ReportTeam } from "@/lib/weekly-report";
+import { DYNASTRY_REPORT_LEAGUE, getWeeklyReport, type ReportTeam } from "@/lib/weekly-report";
+import { getNewsletterCommentary } from "@/lib/newsletter-commentary";
 import PrintReportButton from "@/app/newsletter/week/[week]/PrintReportButton";
 import styles from "@/app/newsletter/week/[week]/report.module.css";
 
 type PageProps = { params: Promise<{ week: string }> };
 
 export const dynamic = "force-dynamic";
-
-const DYNASTRY_REPORT_LEAGUE: ReportLeague = { leagueId: DYNASTRY_LEAGUE_ID, sideGames: false, playoffByRecord: 5, rookieDraft: true };
 
 function avatar(team: Pick<ReportTeam, "username">, size = 52) {
   return <Image src={`/avatars/${team.username}.jpg`} alt="" width={size} height={size} className={styles.avatar} />;
@@ -35,6 +33,8 @@ export default async function DynastryNewsletterPage({ params }: PageProps) {
   if (!Number.isInteger(week) || week < 1 || week > 18) notFound();
   const report = await getWeeklyReport(week, DYNASTRY_REPORT_LEAGUE);
   if (week > report.lastCompletedWeek) notFound();
+  const commentary = await getNewsletterCommentary(report);
+  const commentaryByRoster = new Map(commentary?.teams.map((team) => [team.rosterId, team]) ?? []);
   const headlineMargin = report.highestScorer.score - report.highestScorer.opponentScore;
   const lineupLeader = [...report.powerRankings].sort((a, b) => b.lineupEfficiency - a.lineupEfficiency)[0];
 
@@ -140,8 +140,8 @@ export default async function DynastryNewsletterPage({ params }: PageProps) {
                 <div className={styles.rankingCopy}>
                   <strong>{team.name}</strong>
                   <small>{team.seasonWins}–{team.seasonLosses} record · {team.allPlayWins}–{report.powerRankings.length - 1 - team.allPlayWins} all-play this week · {team.lineupEfficiency.toFixed(0)}% efficiency</small>
-                  <p>{team.blurb}</p>
-                  <span className={styles.rankingAdvice}>{team.advice}</span>
+                  <p>{commentaryByRoster.get(team.rosterId)?.blurb ?? team.blurb}</p>
+                  <span className={styles.rankingAdvice}>{commentaryByRoster.get(team.rosterId)?.advice ?? team.advice}</span>
                 </div>
                 <span className={`${styles.movement} ${movementClass}`}>{movementLabel}</span>
                 <b className={styles.indexScore}><small>Index</small>{team.powerIndex}</b>
@@ -149,6 +149,7 @@ export default async function DynastryNewsletterPage({ params }: PageProps) {
             })}
           </div>
           <p className={styles.method}><strong>Power Index (0–100), season to date:</strong> 35% total points for · 20% season record · 15% cumulative margin · 15% season lineup efficiency · 15% all-play record. Arrows show movement from last week&apos;s season rankings.</p>
+          {commentary && <p className={styles.method}>AI-assisted commentary · {new Date(commentary.generatedAt).toLocaleDateString("en-GB", { timeZone: "UTC" })}</p>}
         </section>
 
         <section className={styles.section}>

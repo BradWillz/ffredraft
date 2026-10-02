@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { isAdmin } from "@/lib/admin-auth";
 import { clearNewsletterCommentary, generateNewsletterCommentary } from "@/lib/newsletter-commentary";
-import { getWeeklyReport } from "@/lib/weekly-report";
+import { DYNASTRY_REPORT_LEAGUE, getWeeklyReport, REDRAFT_REPORT_LEAGUE } from "@/lib/weekly-report";
 import { commentaryFailure, diagnosticStep, logCommentaryDiagnostic, type CommentaryDiagnostics } from "@/lib/newsletter-diagnostics";
 
 export const runtime = "nodejs";
@@ -43,6 +43,12 @@ async function updateCommentary(request: Request, clear: boolean) {
     if (!Number.isInteger(week) || week < 1 || week > 18) {
       return respond({ error: "Choose a week from 1 to 18." }, 400);
     }
+    const league = body?.league ?? "redraft";
+    if (league !== "redraft" && league !== "dynasty") {
+      return respond({ error: "Choose the Redraft or Dynastry newsletter." }, 400);
+    }
+    const reportLeague = league === "dynasty" ? DYNASTRY_REPORT_LEAGUE : REDRAFT_REPORT_LEAGUE;
+    const newsletterUrl = league === "dynasty" ? `/dynastry-of-darkness/newsletter/week/${week}` : `/newsletter/week/${week}`;
     diagnostics.week = week;
     logCommentaryDiagnostic(diagnostics, "request", "validated");
     if (!clear && !process.env.OPENAI_API_KEY) {
@@ -54,7 +60,7 @@ async function updateCommentary(request: Request, clear: boolean) {
       return respond({ error: "Configure shared Redis storage before saving newsletter copy in production.", stage: "configuration", reason: "Shared Redis storage is not configured" }, 503);
     }
     try {
-      const report = await diagnosticStep(diagnostics, "report", "Could not load the weekly report", () => getWeeklyReport(week));
+      const report = await diagnosticStep(diagnostics, "report", "Could not load the weekly report", () => getWeeklyReport(week, reportLeague));
       if (week > report.lastCompletedWeek) {
         return respond({ error: "Only completed weeks can have AI copy." }, 400);
       }
@@ -63,7 +69,7 @@ async function updateCommentary(request: Request, clear: boolean) {
       } else {
         await generateNewsletterCommentary(report, diagnostics);
       }
-      return respond({ week, url: `/newsletter/week/${week}` }, 200);
+      return respond({ week, league, url: newsletterUrl }, 200);
     } catch (error) {
       const failure = commentaryFailure(error, clear ? "clear" : "generation", clear ? "Unexpected error clearing commentary" : "Unexpected commentary generation error");
       logCommentaryDiagnostic(diagnostics, failure.stage, "failed", { reason: failure.reason }, error);
