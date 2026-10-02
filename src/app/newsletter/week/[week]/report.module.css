@@ -116,6 +116,12 @@
 .faabHighlights strong { color: #f7f4ea; font: 900 20px/1.05 var(--font-display); text-transform: uppercase; }
 .faabHighlights small { color: #aebbb5; font-size: 11px; line-height: 1.35; }
 .faabTable { border: 1px solid #294037; }
+.faabToggle { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
+.faabToggle span { margin-right: 4px; color: #92a49b; font: 800 10px/1 var(--font-display); text-transform: uppercase; letter-spacing: 1px; }
+.faabToggle button { padding: 8px 12px; color: #b8c2bc; border: 1px solid #2f4a3e; border-radius: 3px; background: #13241d; font: 800 11px/1 var(--font-display); text-transform: uppercase; cursor: pointer; }
+.faabToggle button:hover { color: #f7f4ea; border-color: #c8f135; }
+.faabToggle button[aria-pressed="true"] { color: #07100d; border-color: #c8f135; background: #c8f135; }
+.faabNumber.faabSorted { color: #c8f135; }
 .faabHeader, .faabRow { display: grid; grid-template-columns: minmax(0,1.6fr) 1.1fr 0.8fr 0.8fr; align-items: center; gap: 6px 12px; padding: 10px 12px; }
 .faabHeader { color: #92a49b; background: #13261e; font: 800 10px/1 var(--font-display); text-transform: uppercase; letter-spacing: 1px; }
 .faabHeader span:nth-child(n+3) { text-align: right; }
@@ -163,7 +169,7 @@
 }
 
 @media print {
-  :global(.site-header), .toolbar, .weekTabs { display: none !important; }
+  :global(.site-header), .toolbar, .weekTabs, .faabToggle { display: none !important; }
   .shell { padding: 0; background: white; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .report { width: 100%; box-shadow: none; }
   .pageBreak { break-before: page; }

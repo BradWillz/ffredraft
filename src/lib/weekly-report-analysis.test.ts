@@ -112,7 +112,7 @@ test("dumbest drop picks the highest-scoring completed waiver or free-agent drop
   assert.deepEqual(dumbestDropsOfWeek([], {}), []);
 });
 
-test("FAAB breakdown sums winning bids and counts started points from the buy week onward", () => {
+test("FAAB breakdown sums paid winning bids, skips $0 claims, and counts started points from the buy week onward", () => {
   const teams = faabBreakdown([
     [{ type: "waiver", status: "complete", adds: { rb: 1 }, settings: { waiver_bid: 20 } }],
     [
@@ -126,10 +126,9 @@ test("FAAB breakdown sums winning bids and counts started points from the buy we
   ]);
   assert.equal(teams.length, 1);
   assert.equal(teams[0].spent, 20);
-  assert.equal(teams[0].startedPoints, 17.5);
+  assert.equal(teams[0].startedPoints, 10);
   assert.deepEqual(teams[0].players.map(({ playerId, bid, startedPoints }) => ({ playerId, bid, startedPoints })), [
     { playerId: "rb", bid: 20, startedPoints: 10 },
-    { playerId: "wr", bid: 0, startedPoints: 7.5 },
   ]);
 });
 

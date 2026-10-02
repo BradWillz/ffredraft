@@ -5,13 +5,14 @@ import { notFound } from "next/navigation";
 import { getWeeklyReport, type ReportTeam } from "@/lib/weekly-report";
 import { getNewsletterCommentary } from "@/lib/newsletter-commentary";
 import PrintReportButton from "./PrintReportButton";
+import FaabTable from "./FaabTable";
 import styles from "./report.module.css";
 
 type PageProps = { params: Promise<{ week: string }> };
 
 export const dynamic = "force-dynamic";
 
-function avatar(team: Pick<ReportTeam, "username">, size = 52) {
+function avatar(team: ReportTeam, size = 52) {
   return <Image src={`/avatars/${team.username}.jpg`} alt="" width={size} height={size} className={styles.avatar} />;
 }
 
@@ -240,7 +241,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
 
         <section className={`${styles.section} ${styles.pageBreak}`}>
           <div className={styles.sectionHeading}><span>{week >= 3 ? "08" : "07"}</span><div><p>The market</p><h2>FAAB breakdown</h2></div></div>
-          <p className={styles.intro}>Every winning waiver bid through Week {week}, and what those players have actually delivered. Points only count while the player was in the buyer&apos;s starting lineup.</p>
+          <p className={styles.intro}>Every paid winning waiver bid through Week {week}, and what those players have actually delivered. Points only count while the player was in the buyer&apos;s starting lineup.</p>
           {(() => {
             const buys = report.faab.teams.flatMap((team) => team.players.filter((player) => player.bid > 0).map((player) => ({ ...player, managerName: team.name })));
             const bestValue = [...buys].sort((left, right) => right.startedPoints / right.bid - left.startedPoints / left.bid)[0];
@@ -252,33 +253,15 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
               <div><span>League total spent</span><strong>${report.faab.teams.reduce((total, team) => total + team.spent, 0)}</strong><small>of ${report.faab.budget * report.faab.teams.length} available</small></div>
             </div>;
           })()}
-          <div className={styles.faabTable}>
-            <div className={styles.faabHeader}><span>Manager</span><span>Spent</span><span>Started pts</span><span>Pts per $1</span></div>
-            {report.faab.teams.map((team) => (
-              <div key={team.rosterId} className={styles.faabRow}>
-                <div className={styles.faabManager}>{avatar(team, 34)}<strong>{team.name}</strong></div>
-                <div className={styles.faabSpent}>
-                  <b>${team.spent}</b><small>${report.faab.budget - team.spent} left</small>
-                  <i aria-hidden="true"><em style={{ width: `${Math.min(100, team.spent / report.faab.budget * 100)}%` }} /></i>
-                </div>
-                <b className={styles.faabNumber}>{score(team.startedPoints)}</b>
-                <b className={styles.faabNumber}>{team.pointsPerDollar == null ? "—" : team.pointsPerDollar.toFixed(2)}</b>
-                <div className={styles.faabPlayers}>
-                  {team.players.length
-                    ? team.players.map((player) => <span key={player.playerId}><strong>{player.playerName}</strong>{player.position && ` ${player.position}`} · ${player.bid} · {score(player.startedPoints)} pts</span>)
-                    : <span className={styles.faabNone}>No winning bids yet</span>}
-                </div>
-              </div>
-            ))}
-          </div>
+          <FaabTable teams={report.faab.teams} budget={report.faab.budget} />
           {!report.faab.available && <p className={styles.method}>Some Sleeper transactions could not be loaded, so totals may be incomplete.</p>}
           <div className={styles.faabMath}>
             <h3>How the math works</h3>
             <ol>
-              <li><strong>Spent</strong> adds up every winning waiver bid from Week 1 to Week {week}. Failed bids and free-agent pickups cost nothing, so they aren&apos;t included. Remaining budget is ${report.faab.budget} minus spent.</li>
+              <li><strong>Spent</strong> adds up every winning waiver bid from Week 1 to Week {week}. Failed bids, free-agent pickups and $0 claims are left out of the table entirely. Remaining budget is ${report.faab.budget} minus spent.</li>
               <li><strong>Started pts</strong> counts a player&apos;s points only in weeks he was in the buyer&apos;s starting lineup, from the week he was claimed onward. Bench weeks, and anything he scores after being dropped, don&apos;t count.</li>
               <li><strong>Pts per $1</strong> is started points ÷ FAAB spent. Example: $10 spent and 45 started points = 4.50 per $1. Managers who haven&apos;t spent anything show &ldquo;—&rdquo;.</li>
-              <li><strong>Best value buy</strong> is the single paid claim with the highest started points ÷ bid. <strong>Biggest splash</strong> is the largest single bid. $0 claims are listed under each manager but can&apos;t win either.</li>
+              <li><strong>Best value buy</strong> is the single paid claim with the highest started points ÷ bid. <strong>Biggest splash</strong> is the largest single bid.</li>
             </ol>
           </div>
         </section>

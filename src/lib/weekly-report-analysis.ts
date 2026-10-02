@@ -173,6 +173,7 @@ export function faabBreakdown(transactionsByWeek: WeeklyTransaction[][], weeklyM
     for (const transaction of transactions) {
       if (transaction.status !== "complete" || transaction.type !== "waiver") continue;
       const bid = Number(transaction.settings?.waiver_bid ?? 0);
+      if (bid <= 0) continue;
       for (const [playerId, rosterId] of Object.entries(transaction.adds ?? {})) {
         const key = `${rosterId}:${playerId}`;
         const existing = buys.get(key);
