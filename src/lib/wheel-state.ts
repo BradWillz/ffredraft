@@ -14,7 +14,7 @@ export type WheelState = {
 };
 
 export const WHEEL_SCENARIOS = [
-  "Highest Scoring Starting QB", "Highest Scoring Kicker", "Highest Scoring Defense",
+  "Highest Scoring Starting QB", "Highest Scoring Loser", "Highest Scoring Defense",
   "Highest Scoring RB", "Highest Scoring WR", "Highest Scoring TE",
   "Most Total Touchdowns (Team)", "Highest Bench Score", "Biggest Blowout Win",
   "Closest Matchup Winner", "Highest Scoring Flex Player", "Most Receiving Yards (Single Player)",
@@ -32,6 +32,12 @@ export const DEFAULT_WHEEL_STATE: WheelState = {
 export async function getWheelState() {
   const state = await sharedGet<WheelState>(WHEEL_STATE_KEY);
   if (!state) return DEFAULT_WHEEL_STATE;
+  // League no longer rosters kickers; swap the unspun entry in saved state.
+  if (state.availableScenarios.includes("Highest Scoring Kicker")) {
+    state.availableScenarios = state.availableScenarios.map((scenario) =>
+      scenario === "Highest Scoring Kicker" ? "Highest Scoring Loser" : scenario);
+    if (state.version === WHEEL_STATE_VERSION) await setWheelState(state);
+  }
   if (state.version === WHEEL_STATE_VERSION) return state;
 
   const latestRecordedWeek = state.weekResults.reduce(

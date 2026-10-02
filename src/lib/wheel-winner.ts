@@ -166,8 +166,25 @@ export async function calculateWheelWinner(week: number, scenario: string): Prom
   switch (scenario) {
     case "Highest Scoring Starting QB":
       return highestStarter(starters, bench, ["QB"], "QB");
-    case "Highest Scoring Kicker":
-      return highestStarter(starters, bench, ["K"], "K");
+    case "Highest Scoring Loser": {
+      const pairs = new Map<number, SleeperMatchup[]>();
+      for (const matchup of matchups) {
+        if (matchup.matchup_id == null) continue;
+        pairs.set(matchup.matchup_id, [...(pairs.get(matchup.matchup_id) ?? []), matchup]);
+      }
+      const losers = [...pairs.values()]
+        .filter((pair) => pair.length === 2 && (pair[0].points ?? 0) !== (pair[1].points ?? 0))
+        .map((pair) => (pair[0].points ?? 0) < (pair[1].points ?? 0)
+          ? { loser: pair[0], winner: pair[1] }
+          : { loser: pair[1], winner: pair[0] });
+      const best = bestBy(losers, (game) => game.loser.points ?? 0);
+      if (!best) return null;
+      return {
+        winnerName: managerName(best.item.loser.roster_id),
+        winnerValue: Number(best.value.toFixed(2)),
+        details: `Scored ${best.value.toFixed(2)} pts but lost to ${managerName(best.item.winner.roster_id)}`,
+      };
+    }
     case "Highest Scoring Defense":
       return highestStarter(starters, bench, ["DEF", "DST"], "D/ST");
     case "Highest Scoring RB":
