@@ -97,9 +97,47 @@
 .sideQuests { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .sideQuests article { min-height: 142px; padding: 18px; color: #f7f4ea; background: #13241d; border-bottom: 4px solid #c8f135; }
 .sideQuests article:nth-child(2) { border-color: #ff6b35; }.sideQuests article:nth-child(3) { border-color: #ffc857; }
+.sideQuests article:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .sideQuests p { color: #aebbb5; font-size: 12px; line-height: 1.4; }
 .standings > div { display: grid; grid-template-columns: 30px 36px 1fr 55px 80px; align-items: center; gap: 10px; padding: 9px 6px; }
 .standings strong { color: #f7f4ea; }.standings b { color: #ffc857; font: 800 14px/1 var(--font-display); text-align: right; }
+.playoffGrid { display: grid; grid-template-rows: repeat(6, auto); grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 8px 12px; }
+.playoffGrid > div { min-width: 0; display: grid; grid-template-columns: 40px minmax(0,1fr) 72px; align-items: center; gap: 10px; padding: 7px 7px 7px 9px; border: 1px solid #2b4439; border-radius: 6px; background: #f7f4ea; }
+.playoffGrid .playoffCutLine { box-shadow: 0 3px 0 #c8f135; }
+.playoffGrid .avatar { width: 40px; height: 40px; }
+.playoffTeam { min-width: 0; display: grid; gap: 3px; }
+.playoffTeam strong { overflow: hidden; color: #07100d; font: 900 15px/1.1 var(--font-display); text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.playoffTeam small { overflow: hidden; color: #4c5b53; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.playoffGrid b { align-self: stretch; display: grid; place-items: center; color: #07100d; border-radius: 4px; font: 900 17px/1 var(--font-display); }
+.faabHighlights { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+.faabHighlights div { min-width: 0; display: grid; gap: 6px; padding: 15px; border-top: 4px solid #ffc857; background: #13241d; }
+.faabHighlights div:first-child { border-color: #c8f135; }.faabHighlights div:nth-child(2) { border-color: #ff6b35; }
+.faabHighlights span { color: #92a49b; font: 800 10px/1 var(--font-display); text-transform: uppercase; letter-spacing: 1px; }
+.faabHighlights strong { color: #f7f4ea; font: 900 20px/1.05 var(--font-display); text-transform: uppercase; }
+.faabHighlights small { color: #aebbb5; font-size: 11px; line-height: 1.35; }
+.faabTable { border: 1px solid #294037; }
+.faabHeader, .faabRow { display: grid; grid-template-columns: minmax(0,1.6fr) 1.1fr 0.8fr 0.8fr; align-items: center; gap: 6px 12px; padding: 10px 12px; }
+.faabHeader { color: #92a49b; background: #13261e; font: 800 10px/1 var(--font-display); text-transform: uppercase; letter-spacing: 1px; }
+.faabHeader span:nth-child(n+3) { text-align: right; }
+.faabRow { border-top: 1px solid #294037; }
+.faabRow:nth-child(odd) { background: rgba(255,255,255,.02); }
+.faabManager { min-width: 0; display: flex; align-items: center; gap: 9px; }
+.faabManager strong { overflow: hidden; color: #f7f4ea; text-overflow: ellipsis; white-space: nowrap; }
+.faabSpent { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 4px 8px; }
+.faabSpent b { color: #ffc857; font: 900 18px/1 var(--font-display); }
+.faabSpent small { color: #81938a; font-size: 10px; text-align: right; }
+.faabSpent i { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 3px; background: #22382e; }
+.faabSpent em { display: block; height: 100%; background: #ffc857; }
+.faabNumber { color: #f7f4ea; font: 900 17px/1 var(--font-display); text-align: right; }
+.faabPlayers { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding-left: 43px; }
+.faabPlayers span { padding: 5px 8px; color: #b8c2bc; border: 1px solid #2f4a3e; border-radius: 3px; background: #172c22; font-size: 11px; }
+.faabPlayers span strong { color: #f7f4ea; }
+.faabPlayers .faabNone { color: #78877f; border-style: dashed; background: transparent; }
+.faabMath { margin-top: 16px; padding: 16px 18px; border-left: 4px solid #c8f135; background: #13241d; }
+.faabMath h3 { margin: 0 0 10px; color: #f7f4ea; font-size: 15px; text-transform: uppercase; }
+.faabMath ol { margin: 0; padding-left: 18px; display: grid; gap: 7px; color: #b8c2bc; font-size: 12px; line-height: 1.45; list-style: decimal; }
+.faabMath li::marker { color: #c8f135; font-weight: 800; }
+.faabMath strong { color: #f7f4ea; }
 .footer { padding: 32px 42px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 16px; color: #f7f4ea; background: #0a1914; border-top: 6px solid #ff6b35; }
 .footer div { display: grid; }.footer strong { font: 800 20px/1 var(--font-display); text-transform: uppercase; }.footer span { margin-top: 5px; color: #aebbb5; }
 .footer a { padding: 12px 16px; color: #07100d; background: #c8f135; font: 800 12px/1 var(--font-display); text-decoration: none; text-transform: uppercase; }
@@ -110,6 +148,10 @@
   .masthead, .section { padding: 28px 20px; }.masthead h1 { font-size: 48px; }.brandRow span { display: none; }
   .heroStat { grid-template-columns: auto 1fr; }.heroStat > b { grid-column: 2; font-size: 28px; }
   .metricStrip, .features, .sideQuests, .scoreboard { grid-template-columns: 1fr; }
+  .playoffGrid { grid-template-rows: none; grid-auto-flow: row; }
+  .faabHighlights { grid-template-columns: 1fr; }
+  .faabHeader, .faabRow { grid-template-columns: minmax(0,1fr) 1fr 64px 56px; gap: 6px 8px; padding: 10px 8px; }
+  .faabPlayers { padding-left: 0; }
   .metricStrip div { border-right: 0; border-bottom: 1px solid rgba(0,0,0,.2); }
   .playerList > div { grid-template-columns: 22px 1fr auto; }.playerList small { grid-column: 2 / -1; }
   .rankingRow { grid-template-columns: 24px 42px minmax(0,1fr) 42px 36px; gap: 8px; }

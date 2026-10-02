@@ -11,12 +11,16 @@ type PageProps = { params: Promise<{ week: string }> };
 
 export const dynamic = "force-dynamic";
 
-function avatar(team: ReportTeam, size = 52) {
+function avatar(team: Pick<ReportTeam, "username">, size = 52) {
   return <Image src={`/avatars/${team.username}.jpg`} alt="" width={size} height={size} className={styles.avatar} />;
 }
 
 function score(value: number) {
   return value.toFixed(2);
+}
+
+function oddsColor(percent: number) {
+  return `hsl(${Math.round(percent * 1.2)} 78% 48%)`;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -191,6 +195,14 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
               {report.waiverPickup.available && !report.waiverPickup.winners.length && <p>No scored waiver or free-agent additions on this week&apos;s rosters.</p>}
               {report.waiverPickup.winners.length > 1 && <p>Shared honours.</p>}
             </article>
+            <article>
+              <span>Dumbest drop of the week</span>
+              <h3>{report.dumbestDrop.losers.length ? [...new Set(report.dumbestDrop.losers.map((loser) => loser.managerName))].join(" · ") : report.dumbestDrop.available ? "No costly drops" : "Data unavailable"}</h3>
+              {report.dumbestDrop.losers.map((loser) => <p key={`${loser.rosterId}:${loser.playerId}`}>Dropped {loser.playerName}{loser.position ? ` (${loser.position})` : ""} · {score(loser.points)} points this week</p>)}
+              {!report.dumbestDrop.available && <p>Sleeper transactions or stats could not be loaded.</p>}
+              {report.dumbestDrop.available && !report.dumbestDrop.losers.length && <p>No dropped player recorded a score this week.</p>}
+              {report.dumbestDrop.losers.length > 1 && <p>Shared shame.</p>}
+            </article>
             <article><span>The Power</span><h3>{report.powerHolder?.holderName ?? "Awaiting result"}</h3><p>{report.powerHolder?.reason ?? "Sleeper has not finalized this chapter."}</p></article>
             <article><span>Spin the Wheel</span><h3>{report.wheel?.scenario ?? "No result recorded"}</h3><p>{report.wheel?.winnerName ? `${report.wheel.winnerName} · ${report.wheel.details ?? "Winner recorded"}` : "Commissioner result pending."}</p></article>
             <article><span>Ladbrokes</span><h3>{report.ladbrokes.winners.length ? report.ladbrokes.winners.map((winner) => winner.displayName).join(" · ") : "No entries"}</h3><p>{report.ladbrokes.winners.length ? `${report.ladbrokes.winners[0].correct}/${report.ladbrokes.total} correct · joint winners of the weekly prediction card.` : "No locked entries were recorded."}</p></article>
@@ -203,6 +215,71 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
             {report.standings.map((team, index) => (
               <div key={team.rosterId}><span>{index + 1}</span>{avatar(team, 36)}<strong>{team.name}</strong><small>{team.seasonWins}–{team.seasonLosses}</small><b>{score(team.seasonPoints)} PF</b></div>
             ))}
+          </div>
+        </section>
+
+        {week >= 3 && (
+          <section className={`${styles.section} ${styles.pageBreak}`}>
+            <div className={styles.sectionHeading}><span>07</span><div><p>The race</p><h2>Playoff chances</h2></div></div>
+            <p className={styles.intro}>Six teams make the playoffs. Seeds 1–5 go to the best records; the final spot goes to the highest points-for among everyone else. Odds come from {report.playoffOdds.simulations.toLocaleString("en-GB")} simulations of the remaining Week {week + 1}–{report.playoffOdds.regularSeasonWeeks} schedule.</p>
+            <div className={styles.playoffGrid}>
+              {report.playoffOdds.teams.map((team, index) => (
+                <div key={team.rosterId} className={index === 5 ? styles.playoffCutLine : undefined}>
+                  <Image src={`/avatars/${team.username}.jpg`} alt="" width={40} height={40} className={styles.avatar} />
+                  <div className={styles.playoffTeam}>
+                    <strong>{team.teamName}</strong>
+                    <small>{team.name} · {team.wins}–{team.losses} · {score(team.points)} PF</small>
+                  </div>
+                  <b style={{ background: oddsColor(team.playoff) }}>{team.playoff.toFixed(1)}%</b>
+                </div>
+              ))}
+            </div>
+            <p className={styles.method}><strong>How it works:</strong> each remaining game is played out using every team&apos;s scoring average so far, pulled toward the league average so early hot and cold streaks don&apos;t count for too much.</p>
+          </section>
+        )}
+
+        <section className={`${styles.section} ${styles.pageBreak}`}>
+          <div className={styles.sectionHeading}><span>{week >= 3 ? "08" : "07"}</span><div><p>The market</p><h2>FAAB breakdown</h2></div></div>
+          <p className={styles.intro}>Every winning waiver bid through Week {week}, and what those players have actually delivered. Points only count while the player was in the buyer&apos;s starting lineup.</p>
+          {(() => {
+            const buys = report.faab.teams.flatMap((team) => team.players.filter((player) => player.bid > 0).map((player) => ({ ...player, managerName: team.name })));
+            const bestValue = [...buys].sort((left, right) => right.startedPoints / right.bid - left.startedPoints / left.bid)[0];
+            const priciest = [...buys].sort((left, right) => right.bid - left.bid || right.startedPoints - left.startedPoints)[0];
+            if (!bestValue || !priciest) return null;
+            return <div className={styles.faabHighlights}>
+              <div><span>Best value buy</span><strong>{bestValue.playerName}</strong><small>{bestValue.managerName} · ${bestValue.bid} · {score(bestValue.startedPoints)} started pts · {(bestValue.startedPoints / bestValue.bid).toFixed(2)} per $1</small></div>
+              <div><span>Biggest splash</span><strong>{priciest.playerName}</strong><small>{priciest.managerName} · ${priciest.bid} · {score(priciest.startedPoints)} started pts</small></div>
+              <div><span>League total spent</span><strong>${report.faab.teams.reduce((total, team) => total + team.spent, 0)}</strong><small>of ${report.faab.budget * report.faab.teams.length} available</small></div>
+            </div>;
+          })()}
+          <div className={styles.faabTable}>
+            <div className={styles.faabHeader}><span>Manager</span><span>Spent</span><span>Started pts</span><span>Pts per $1</span></div>
+            {report.faab.teams.map((team) => (
+              <div key={team.rosterId} className={styles.faabRow}>
+                <div className={styles.faabManager}>{avatar(team, 34)}<strong>{team.name}</strong></div>
+                <div className={styles.faabSpent}>
+                  <b>${team.spent}</b><small>${report.faab.budget - team.spent} left</small>
+                  <i aria-hidden="true"><em style={{ width: `${Math.min(100, team.spent / report.faab.budget * 100)}%` }} /></i>
+                </div>
+                <b className={styles.faabNumber}>{score(team.startedPoints)}</b>
+                <b className={styles.faabNumber}>{team.pointsPerDollar == null ? "—" : team.pointsPerDollar.toFixed(2)}</b>
+                <div className={styles.faabPlayers}>
+                  {team.players.length
+                    ? team.players.map((player) => <span key={player.playerId}><strong>{player.playerName}</strong>{player.position && ` ${player.position}`} · ${player.bid} · {score(player.startedPoints)} pts</span>)
+                    : <span className={styles.faabNone}>No winning bids yet</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          {!report.faab.available && <p className={styles.method}>Some Sleeper transactions could not be loaded, so totals may be incomplete.</p>}
+          <div className={styles.faabMath}>
+            <h3>How the math works</h3>
+            <ol>
+              <li><strong>Spent</strong> adds up every winning waiver bid from Week 1 to Week {week}. Failed bids and free-agent pickups cost nothing, so they aren&apos;t included. Remaining budget is ${report.faab.budget} minus spent.</li>
+              <li><strong>Started pts</strong> counts a player&apos;s points only in weeks he was in the buyer&apos;s starting lineup, from the week he was claimed onward. Bench weeks, and anything he scores after being dropped, don&apos;t count.</li>
+              <li><strong>Pts per $1</strong> is started points ÷ FAAB spent. Example: $10 spent and 45 started points = 4.50 per $1. Managers who haven&apos;t spent anything show &ldquo;—&rdquo;.</li>
+              <li><strong>Best value buy</strong> is the single paid claim with the highest started points ÷ bid. <strong>Biggest splash</strong> is the largest single bid. $0 claims are listed under each manager but can&apos;t win either.</li>
+            </ol>
           </div>
         </section>
 

@@ -3,7 +3,7 @@ import { mock, test } from "node:test";
 import { clearNewsletterCommentary, generateNewsletterCommentary, getNewsletterCommentary, validateNewsletterCommentary } from "./newsletter-commentary";
 import { sharedAcquireLock, sharedDelete } from "./shared-store";
 import type { WeeklyReport } from "./weekly-report";
-import { bestLegalBenchSwap, matchupSummary, waiverPickupsOfWeek, type WeeklyMatchup } from "./weekly-report-analysis";
+import { bestLegalBenchSwap, dumbestDropsOfWeek, faabBreakdown, leagueScoredPoints, matchupSummary, playoffField, simulatePlayoffOdds, waiverPickupsOfWeek, type WeeklyMatchup, type WeeklyTransaction } from "./weekly-report-analysis";
 import { CommentaryDiagnosticError, diagnosticStep, logCommentaryDiagnostic, safeDiagnosticException } from "./newsletter-diagnostics";
 
 test("diagnostics retain exception stacks and causes but redact secrets", async () => {
@@ -98,11 +98,76 @@ test("pickup award includes completed waivers and free agents, bench scores, and
   ]);
 });
 
+test("dumbest drop picks the highest-scoring completed waiver or free-agent drop, sharing ties", () => {
+  const transactions: WeeklyTransaction[] = [
+    { type: "waiver", status: "complete", adds: { a: 1 }, drops: { PHI: 1 } },
+    { type: "free_agent", status: "complete", adds: null, drops: { rb: 2 } },
+    { type: "free_agent", status: "complete", drops: { wr: 3 } },
+    { type: "waiver", status: "failed", drops: { star: 4 } },
+    { type: "trade", status: "complete", drops: { star: 5 } },
+    { type: "free_agent", status: "complete", drops: { unplayed: 6 } },
+  ];
+  const losers = dumbestDropsOfWeek(transactions, { PHI: 4, rb: 18.5, wr: 18.5, star: 40 });
+  assert.deepEqual(losers.map(({ rosterId, playerId }) => ({ rosterId, playerId })), [{ rosterId: 2, playerId: "rb" }, { rosterId: 3, playerId: "wr" }]);
+  assert.deepEqual(dumbestDropsOfWeek([], {}), []);
+});
+
+test("FAAB breakdown sums winning bids and counts started points from the buy week onward", () => {
+  const teams = faabBreakdown([
+    [{ type: "waiver", status: "complete", adds: { rb: 1 }, settings: { waiver_bid: 20 } }],
+    [
+      { type: "waiver", status: "complete", adds: { wr: 1 }, settings: { waiver_bid: 0 } },
+      { type: "waiver", status: "failed", adds: { te: 1 }, settings: { waiver_bid: 50 } },
+      { type: "free_agent", status: "complete", adds: { qb: 1 } },
+    ],
+  ], [
+    [{ roster_id: 1, matchup_id: 1, starters: ["rb", "wr"], players_points: { rb: 10, wr: 99 } }],
+    [{ roster_id: 1, matchup_id: 1, starters: ["wr"], players: ["rb", "wr"], players_points: { rb: 30, wr: 7.5 } }],
+  ]);
+  assert.equal(teams.length, 1);
+  assert.equal(teams[0].spent, 20);
+  assert.equal(teams[0].startedPoints, 17.5);
+  assert.deepEqual(teams[0].players.map(({ playerId, bid, startedPoints }) => ({ playerId, bid, startedPoints })), [
+    { playerId: "rb", bid: 20, startedPoints: 10 },
+    { playerId: "wr", bid: 0, startedPoints: 7.5 },
+  ]);
+});
+
+test("league scoring applies custom settings to raw stats", () => {
+  assert.equal(leagueScoredPoints({ rec: 5, rec_yd: 63, rec_td: 1, fum_lost: 1 }, { rec: 0.5, rec_yd: 0.1, rec_td: 6, fum_lost: -2 }), 12.8);
+  assert.equal(leagueScoredPoints(undefined, { rec: 1 }), null);
+});
+
 test("pickup award skips absent players and missing scores, but accepts zero", () => {
   const transactions = [{ type: "waiver", status: "complete", adds: { missing: 1, receiver: 1 } }];
   assert.deepEqual(waiverPickupsOfWeek(transactions, []), []);
   assert.deepEqual(waiverPickupsOfWeek(transactions, [{ ...matchup, players_points: {} }]), []);
   assert.equal(waiverPickupsOfWeek(transactions, [{ ...matchup, players_points: { receiver: 0 } }])[0].points, 0);
+});
+
+test("playoff field takes five by record and the sixth by points among the rest", () => {
+  const teams = Array.from({ length: 8 }, (_, index) => ({ rosterId: index + 1, wins: 8 - index, ties: 0, points: 1000 }));
+  teams[7].points = 2000;
+  teams[5].points = 900;
+  const { recordSeeds, pointsSeeds } = playoffField(teams);
+  assert.deepEqual(recordSeeds, [1, 2, 3, 4, 5]);
+  assert.deepEqual(pointsSeeds, [8]);
+});
+
+test("playoff odds sum to six spots, are deterministic, and lock in when the season is over", () => {
+  const teams = Array.from({ length: 12 }, (_, index) => ({
+    rosterId: index + 1, wins: index % 3, losses: 3 - (index % 3), ties: 0, points: 300 + index * 10, scores: [100, 100 + index, 100 + index * 2],
+  }));
+  const schedule = Array.from({ length: 11 }, () => Array.from({ length: 6 }, (_, game) => [game * 2 + 1, game * 2 + 2] as [number, number]));
+  const odds = simulatePlayoffOdds(teams, schedule, { simulations: 2000, seed: 7 });
+  const total = [...odds.values()].reduce((sum, team) => sum + team.playoff, 0);
+  assert.ok(Math.abs(total - 600) < 1e-6);
+  assert.deepEqual(simulatePlayoffOdds(teams, schedule, { simulations: 2000, seed: 7 }), odds);
+
+  const final = simulatePlayoffOdds(teams, [], { simulations: 50 });
+  const qualified = [...final.entries()].filter(([, team]) => team.playoff === 100).map(([rosterId]) => rosterId).sort((a, b) => a - b);
+  assert.equal(qualified.length, 6);
+  assert.equal(final.get(12)?.byRecord, 100);
 });
 
 test("AI commentary requires complete rosters but no sources or injury citations", () => {

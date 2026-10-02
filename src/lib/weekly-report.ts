@@ -11,18 +11,23 @@ import {
   getLeagueTransactions,
   getLeagueUsers,
   getWeeklyPlayerProjections,
+  getWeeklyPlayerStats,
 } from "./sleeper";
 import { getWheelState } from "./wheel-state";
 import {
+  dumbestDropsOfWeek,
+  faabBreakdown,
+  leagueScoredPoints,
   matchupSummary,
+  simulatePlayoffOdds,
   waiverPickupsOfWeek,
   type WeeklyPlayer,
   type WeeklyTransaction,
 } from "./weekly-report-analysis";
 
-type SleeperLeague = { name?: string; season: string; roster_positions?: string[]; settings?: { last_scored_leg?: number } };
+type SleeperLeague = { name?: string; season: string; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { last_scored_leg?: number; playoff_week_start?: number; waiver_budget?: number } };
 type SleeperRoster = { roster_id: number; owner_id?: string | null };
-type SleeperUser = { user_id: string; username?: string; display_name?: string };
+type SleeperUser = { user_id: string; username?: string; display_name?: string; metadata?: { team_name?: string } };
 type SleeperMatchup = {
   roster_id: number;
   matchup_id: number | null;
@@ -86,6 +91,23 @@ export type WeeklyReport = {
     available: boolean;
     winners: Array<{ playerId: string; playerName: string; managerName: string; rosterId: number; points: number; started: boolean }>;
   };
+  dumbestDrop: {
+    available: boolean;
+    losers: Array<{ playerId: string; playerName: string; position: string; managerName: string; rosterId: number; points: number }>;
+  };
+  faab: {
+    available: boolean;
+    budget: number;
+    teams: Array<{
+      rosterId: number;
+      name: string;
+      username: string;
+      spent: number;
+      startedPoints: number;
+      pointsPerDollar: number | null;
+      players: Array<{ playerId: string; playerName: string; position: string; bid: number; week: number; startedPoints: number }>;
+    }>;
+  };
   ladbrokes: {
     winners: Array<{ displayName: string; correct: number }>;
     total: number;
@@ -95,7 +117,25 @@ export type WeeklyReport = {
     eliminated: Array<{ rosterId: number; name: string; username: string; week: number; score: number }>;
     winner: { rosterId: number; name: string; username: string } | null;
   };
+  playoffOdds: {
+    simulations: number;
+    regularSeasonWeeks: number;
+    teams: Array<{
+      rosterId: number;
+      name: string;
+      username: string;
+      teamName: string;
+      wins: number;
+      losses: number;
+      points: number;
+      playoff: number;
+      byRecord: number;
+      byPoints: number;
+    }>;
+  };
 };
+
+const PLAYOFF_SIMULATIONS = 10000;
 
 type PublishedLadbrokesState = {
   history?: Array<{
@@ -183,7 +223,7 @@ function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
 
 export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
   const league = await getLeague(SLEEPER_LEAGUE_ID) as SleeperLeague;
-  const [rosterResult, userResult, playersResult, projectionsResult, wheelState, powerState, submissions, transactions] = await Promise.all([
+  const [rosterResult, userResult, playersResult, projectionsResult, wheelState, powerState, submissions, transactions, statsResult] = await Promise.all([
     getLeagueRosters(SLEEPER_LEAGUE_ID),
     getLeagueUsers(SLEEPER_LEAGUE_ID),
     getAllPlayers(),
@@ -194,6 +234,9 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
     getLeagueTransactions(SLEEPER_LEAGUE_ID, week)
       .then((result) => Array.isArray(result) ? result as WeeklyTransaction[] : null)
       .catch(() => null),
+    getWeeklyPlayerStats(league.season, week)
+      .then((result) => result as Record<string, Record<string, number>>)
+      .catch(() => null),
   ]);
   const rosters = rosterResult as SleeperRoster[];
   const users = userResult as SleeperUser[];
@@ -202,11 +245,23 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
   const weeklyMatchups = await Promise.all(
     Array.from({ length: week }, (_, index) => getLeagueMatchups(SLEEPER_LEAGUE_ID, index + 1) as Promise<SleeperMatchup[]>),
   );
-  let nextWeekMatchups: SleeperMatchup[] = [];
-  try {
-    nextWeekMatchups = await getLeagueMatchups(SLEEPER_LEAGUE_ID, week + 1) as SleeperMatchup[];
-  } catch {
-    nextWeekMatchups = [];
+  const earlierTransactions = await Promise.all(
+    Array.from({ length: week - 1 }, (_, index) => getLeagueTransactions(SLEEPER_LEAGUE_ID, index + 1)
+      .then((result) => Array.isArray(result) ? result as WeeklyTransaction[] : null)
+      .catch(() => null)),
+  );
+  const regularSeasonWeeks = Math.max(week, Number(league.settings?.playoff_week_start ?? 15) - 1);
+  const futureMatchups = await Promise.all(
+    Array.from({ length: regularSeasonWeeks - week }, (_, index) =>
+      (getLeagueMatchups(SLEEPER_LEAGUE_ID, week + 1 + index) as Promise<SleeperMatchup[]>).catch(() => [] as SleeperMatchup[])),
+  );
+  let nextWeekMatchups: SleeperMatchup[] = futureMatchups[0] ?? [];
+  if (futureMatchups.length === 0) {
+    try {
+      nextWeekMatchups = await getLeagueMatchups(SLEEPER_LEAGUE_ID, week + 1) as SleeperMatchup[];
+    } catch {
+      nextWeekMatchups = [];
+    }
   }
   const matchups = weeklyMatchups.at(-1) ?? [];
   if (matchups.length === 0) throw new Error(`No Sleeper matchups found for Week ${week}`);
@@ -215,21 +270,26 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
   const rosterNames = new Map(rosters.map((roster) => {
     const user = roster.owner_id ? usersById.get(roster.owner_id) : undefined;
     const username = user?.username || user?.display_name || user?.user_id || `Team${roster.roster_id}`;
-    return [roster.roster_id, { name: getDisplayName(username), username: normalizeUsername(username) }];
+    return [roster.roster_id, {
+      name: getDisplayName(username),
+      username: normalizeUsername(username),
+      teamName: user?.metadata?.team_name?.trim() || getDisplayName(username),
+    }];
   }));
   const nextOpponentNames = new Map<number, string>();
   for (const matchup of nextWeekMatchups) {
     const opponent = matchup.matchup_id == null ? undefined : nextWeekMatchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
     nextOpponentNames.set(matchup.roster_id, rosterNames.get(opponent?.roster_id ?? 0)?.name ?? "your next opponent");
   }
-  const seasonRecords = new Map<number, { wins: number; losses: number; points: number }>();
+  const seasonRecords = new Map<number, { wins: number; losses: number; ties: number; points: number; scores: number[] }>();
   for (const weekMatchups of weeklyMatchups) {
     const groups = new Map<number, SleeperMatchup[]>();
     for (const matchup of weekMatchups) {
       if (matchup.matchup_id == null) continue;
       groups.set(matchup.matchup_id, [...(groups.get(matchup.matchup_id) ?? []), matchup]);
-      const record = seasonRecords.get(matchup.roster_id) ?? { wins: 0, losses: 0, points: 0 };
+      const record = seasonRecords.get(matchup.roster_id) ?? { wins: 0, losses: 0, ties: 0, points: 0, scores: [] };
       record.points += matchup.points ?? 0;
+      record.scores.push(matchup.points ?? 0);
       seasonRecords.set(matchup.roster_id, record);
     }
     for (const pair of groups.values()) {
@@ -241,6 +301,9 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       } else if ((team2.points ?? 0) > (team1.points ?? 0)) {
         seasonRecords.get(team2.roster_id)!.wins += 1;
         seasonRecords.get(team1.roster_id)!.losses += 1;
+      } else {
+        seasonRecords.get(team1.roster_id)!.ties += 1;
+        seasonRecords.get(team2.roster_id)!.ties += 1;
       }
     }
   }
@@ -263,7 +326,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       .sort((left, right) => left.points - right.points)[0];
     const identity = rosterNames.get(matchup.roster_id) ?? { name: `Team ${matchup.roster_id}`, username: `Team${matchup.roster_id}` };
     const opponentIdentity = opponent ? rosterNames.get(opponent.roster_id) : undefined;
-    const record = seasonRecords.get(matchup.roster_id) ?? { wins: 0, losses: 0, points: score };
+    const record = seasonRecords.get(matchup.roster_id) ?? { wins: 0, losses: 0, ties: 0, points: score, scores: [score] };
     return {
       rosterId: matchup.roster_id,
       name: identity.name,
@@ -386,6 +449,32 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       const identity = rosterNames.get(roster.roster_id) ?? { name: `Team ${roster.roster_id}`, username: `Team${roster.roster_id}` };
       return { rosterId: roster.roster_id, name: identity.name, username: identity.username };
     });
+  const remainingSchedule = futureMatchups.map((weekMatchups) => {
+    const pairs = new Map<number, number[]>();
+    for (const matchup of weekMatchups) {
+      if (matchup.matchup_id == null) continue;
+      pairs.set(matchup.matchup_id, [...(pairs.get(matchup.matchup_id) ?? []), matchup.roster_id]);
+    }
+    return [...pairs.values()].filter((pair) => pair.length === 2).map(([home, away]) => [home, away] as [number, number]);
+  });
+  const playoffOdds = simulatePlayoffOdds(
+    rosters.map((roster) => {
+      const record = seasonRecords.get(roster.roster_id) ?? { wins: 0, losses: 0, ties: 0, points: 0, scores: [] };
+      return { rosterId: roster.roster_id, wins: record.wins, losses: record.losses, ties: record.ties, points: record.points, scores: record.scores };
+    }),
+    remainingSchedule,
+    { simulations: PLAYOFF_SIMULATIONS, seed: Number(league.season) * 100 + week },
+  );
+  const transactionsOrEmpty = transactions ?? [];
+  // Dropped players usually aren't rostered, so score them from raw stats with league scoring; rostered points win when present.
+  const droppedPlayerPoints: Record<string, number> = {};
+  for (const playerId of new Set(transactionsOrEmpty.flatMap((transaction) => Object.keys(transaction.drops ?? {})))) {
+    const rosteredPoints = matchups.find((matchup) => matchup.players_points?.[playerId] != null)?.players_points?.[playerId];
+    const points = rosteredPoints ?? leagueScoredPoints(statsResult?.[playerId], league.scoring_settings ?? {});
+    if (points != null) droppedPlayerPoints[playerId] = points;
+  }
+  const faabTeams = new Map(faabBreakdown([...earlierTransactions, transactions].map((weekTransactions) => weekTransactions ?? []), weeklyMatchups)
+    .map((team) => [team.rosterId, team]));
 
   return {
     leagueName: league.name ?? "Left, Down, Wide to the Right, Up",
@@ -413,6 +502,36 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
         managerName: rosterNames.get(pickup.rosterId)?.name ?? `Team ${pickup.rosterId}`,
       })),
     },
+    dumbestDrop: {
+      available: transactions !== null && statsResult !== null,
+      losers: dumbestDropsOfWeek(transactionsOrEmpty, droppedPlayerPoints).map((drop) => ({
+        ...drop,
+        playerName: playerName(drop.playerId, players),
+        position: players[drop.playerId]?.position ?? (/^[A-Z]{2,3}$/.test(drop.playerId) ? "DEF" : ""),
+        managerName: rosterNames.get(drop.rosterId)?.name ?? `Team ${drop.rosterId}`,
+      })),
+    },
+    faab: {
+      available: transactions !== null && earlierTransactions.every((weekTransactions) => weekTransactions !== null),
+      budget: Number(league.settings?.waiver_budget ?? 100),
+      teams: rosters.map((roster) => {
+        const identity = rosterNames.get(roster.roster_id) ?? { name: `Team ${roster.roster_id}`, username: `Team${roster.roster_id}` };
+        const team = faabTeams.get(roster.roster_id) ?? { spent: 0, startedPoints: 0, players: [] };
+        return {
+          rosterId: roster.roster_id,
+          name: identity.name,
+          username: identity.username,
+          spent: team.spent,
+          startedPoints: team.startedPoints,
+          pointsPerDollar: team.spent > 0 ? Math.round(team.startedPoints / team.spent * 100) / 100 : null,
+          players: team.players.map((player) => ({
+            ...player,
+            playerName: playerName(player.playerId, players),
+            position: players[player.playerId]?.position ?? "",
+          })),
+        };
+      }).sort((left, right) => right.spent - left.spent || right.startedPoints - left.startedPoints),
+    },
     ladbrokes: {
       winners: ladbrokesWinners.map((winner) => ({ displayName: winner.displayName, correct: winner.correct })),
       total: ladbrokesTotal,
@@ -421,6 +540,16 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       contenders,
       eliminated,
       winner: contenders.length === 1 ? contenders[0] : null,
+    },
+    playoffOdds: {
+      simulations: PLAYOFF_SIMULATIONS,
+      regularSeasonWeeks,
+      teams: rosters.map((roster) => {
+        const identity = rosterNames.get(roster.roster_id) ?? { name: `Team ${roster.roster_id}`, username: `Team${roster.roster_id}`, teamName: `Team ${roster.roster_id}` };
+        const record = seasonRecords.get(roster.roster_id) ?? { wins: 0, losses: 0, points: 0 };
+        const odds = playoffOdds.get(roster.roster_id) ?? { playoff: 0, byRecord: 0, byPoints: 0 };
+        return { rosterId: roster.roster_id, ...identity, wins: record.wins, losses: record.losses, points: record.points, ...odds };
+      }).sort((left, right) => right.playoff - left.playoff || right.points - left.points),
     },
   };
 }
