@@ -66,6 +66,63 @@ export function bestLegalBenchSwap(
   return best;
 }
 
+// Fill the most restrictive slots first so flex slots get the best leftovers.
+export function maxPointsFor(matchup: WeeklyMatchup, players: Record<string, WeeklyPlayer>, rosterPositions: string[]) {
+  const slots = rosterPositions
+    .filter((slot) => !["BN", "IR", "TAXI"].includes(slot))
+    .sort((left, right) => (flexPositions[left]?.length ?? 1) - (flexPositions[right]?.length ?? 1));
+  const points = matchup.players_points ?? {};
+  const pool = (matchup.players ?? [])
+    .filter((id) => id !== "0" && Number.isFinite(points[id]))
+    .sort((left, right) => points[right] - points[left]);
+  const used = new Set<string>();
+  let total = 0;
+  for (const slot of slots) {
+    const eligible = flexPositions[slot] ?? [slot];
+    const pick = pool.find((id) => {
+      const player = players[id];
+      const positions = player?.fantasy_positions ?? (player?.position ? [player.position] : []);
+      return !used.has(id) && positions.some((position) => eligible.includes(position));
+    });
+    if (!pick) continue;
+    used.add(pick);
+    total += points[pick];
+  }
+  return Math.round(total * 100) / 100;
+}
+
+export type DraftPickTrade = { season: string; round: number; roster_id: number; owner_id: number; previous_owner_id: number };
+
+// Rewinds current pick ownership by undoing trades made after the report week, newest first.
+export function pickOwnersAt(currentTradedPicks: DraftPickTrade[], laterTrades: DraftPickTrade[][], season: string) {
+  const owners = new Map<string, number>();
+  for (const pick of currentTradedPicks) {
+    if (pick.season === season) owners.set(`${pick.round}:${pick.roster_id}`, pick.owner_id);
+  }
+  for (const trade of [...laterTrades].reverse()) {
+    for (const pick of trade) {
+      if (pick.season === season) owners.set(`${pick.round}:${pick.roster_id}`, pick.previous_owner_id);
+    }
+  }
+  return (round: number, originalRosterId: number) => owners.get(`${round}:${originalRosterId}`) ?? originalRosterId;
+}
+
+// Non-playoff teams pick 1-6 by lowest max PF; playoff teams pick 7-12 by seed until the bracket decides it (champion picks last).
+export function rookieDraftOrder(
+  teams: Array<{ rosterId: number; wins: number; ties: number; points: number; maxPoints: number }>,
+  byRecord = 5,
+  playoffTeams = 6,
+) {
+  const { recordSeeds, pointsSeeds } = playoffField(teams, byRecord, playoffTeams);
+  const seeds = [...recordSeeds, ...pointsSeeds];
+  const lottery = teams
+    .filter((team) => !seeds.includes(team.rosterId))
+    .sort((left, right) => left.maxPoints - right.maxPoints || left.rosterId - right.rosterId)
+    .map((team) => ({ rosterId: team.rosterId, seed: null as number | null }));
+  const playoff = [...seeds].reverse().map((rosterId) => ({ rosterId, seed: seeds.indexOf(rosterId) + 1 }));
+  return [...lottery, ...playoff].map((entry, index) => ({ ...entry, pick: index + 1 }));
+}
+
 export function matchupSummary(
   name: string,
   opponentName: string,

@@ -144,6 +144,28 @@
 .faabMath ol { margin: 0; padding-left: 18px; display: grid; gap: 7px; color: #b8c2bc; font-size: 12px; line-height: 1.45; list-style: decimal; }
 .faabMath li::marker { color: #c8f135; font-weight: 800; }
 .faabMath strong { color: #f7f4ea; }
+.draftSwipe { display: none; margin: -6px 0 8px; color: #92a49b; font: 800 10px/1 var(--font-display); text-transform: uppercase; letter-spacing: 1px; text-align: right; }
+.draftScroll { overflow-x: auto; border: 1px solid #294037; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; scroll-padding-left: 40px; }
+.draftGrid { display: grid; grid-template-columns: 40px repeat(12, minmax(56px,1fr)); min-width: 712px; }
+.draftGridRow { display: contents; }
+.draftGridRow > * { min-width: 0; padding: 7px 3px; border-top: 1px solid #294037; border-left: 1px solid #1f342b; scroll-snap-align: start; }
+.draftGridRow:first-child > * { border-top: 0; }
+.draftCorner, .draftRound { position: sticky; left: 0; z-index: 1; display: grid; place-items: center; border-left: 0 !important; background: #13261e; }
+.draftCorner { color: #92a49b; font: 800 9px/1 var(--font-display); text-transform: uppercase; }
+.draftRound { color: #c8f135; font: 900 15px/1 var(--font-display); }
+.draftSlotHead { display: grid; justify-items: center; align-content: start; gap: 3px; background: #13261e; text-align: center; }
+.draftSlotHead b { color: #ff8254; font: 900 18px/1 var(--font-display); }
+.draftSlotHead strong { max-width: 100%; overflow: hidden; color: #f7f4ea; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.draftSlotHead small { color: #81938a; font-size: 9px; white-space: nowrap; }
+.draftPlayoffStart { border-left: 3px solid #c8f135 !important; }
+.draftOwn, .draftTraded { display: grid; justify-items: center; align-content: center; gap: 3px; text-align: center; }
+.draftOwn small, .draftTraded small { color: #81938a; font: 800 9px/1 var(--font-display); }
+.draftOwn strong, .draftTraded strong { max-width: 100%; overflow: hidden; color: #dce5df; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.draftOwn .avatar, .draftTraded .avatar { width: 28px; height: 28px; }
+.draftTraded { background: rgba(255,200,87,.1); box-shadow: inset 0 0 0 1px rgba(255,200,87,.45); }
+.draftTraded .avatar { border-color: #ffc857; }
+.draftTraded strong { color: #ffc857; }
+.draftTraded em { max-width: 100%; overflow: hidden; color: #b39556; font-size: 8px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .footer { padding: 32px 42px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 16px; color: #f7f4ea; background: #0a1914; border-top: 6px solid #ff6b35; }
 .footer div { display: grid; }.footer strong { font: 800 20px/1 var(--font-display); text-transform: uppercase; }.footer span { margin-top: 5px; color: #aebbb5; }
 .footer a { padding: 12px 16px; color: #07100d; background: #c8f135; font: 800 12px/1 var(--font-display); text-decoration: none; text-transform: uppercase; }
@@ -158,6 +180,8 @@
   .faabHighlights { grid-template-columns: 1fr; }
   .faabHeader, .faabRow { grid-template-columns: minmax(0,1fr) 1fr 64px 56px; gap: 6px 8px; padding: 10px 8px; }
   .faabPlayers { padding-left: 0; }
+  .draftSwipe { display: block; }
+  .draftGrid { grid-template-columns: 36px repeat(12, 68px); min-width: 0; width: max-content; }
   .metricStrip div { border-right: 0; border-bottom: 1px solid rgba(0,0,0,.2); }
   .playerList > div { grid-template-columns: 22px 1fr auto; }.playerList small { grid-column: 2 / -1; }
   .rankingRow { grid-template-columns: 24px 42px minmax(0,1fr) 42px 36px; gap: 8px; }

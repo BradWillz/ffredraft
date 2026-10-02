@@ -10,6 +10,7 @@ import {
   getLeagueRosters,
   getLeagueTransactions,
   getLeagueUsers,
+  getTradedPicks,
   getWeeklyPlayerProjections,
   getWeeklyPlayerStats,
 } from "./sleeper";
@@ -19,13 +20,17 @@ import {
   faabBreakdown,
   leagueScoredPoints,
   matchupSummary,
+  maxPointsFor,
+  pickOwnersAt,
+  rookieDraftOrder,
   simulatePlayoffOdds,
   waiverPickupsOfWeek,
+  type DraftPickTrade,
   type WeeklyPlayer,
   type WeeklyTransaction,
 } from "./weekly-report-analysis";
 
-type SleeperLeague = { name?: string; season: string; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { last_scored_leg?: number; playoff_week_start?: number; waiver_budget?: number } };
+type SleeperLeague = { name?: string; season: string; roster_positions?: string[]; scoring_settings?: Record<string, number>; settings?: { last_scored_leg?: number; leg?: number; playoff_week_start?: number; waiver_budget?: number; draft_rounds?: number } };
 type SleeperRoster = { roster_id: number; owner_id?: string | null };
 type SleeperUser = { user_id: string; username?: string; display_name?: string; metadata?: { team_name?: string } };
 type SleeperMatchup = {
@@ -37,7 +42,7 @@ type SleeperMatchup = {
   players_points?: Record<string, number>;
 };
 type SleeperPlayer = WeeklyPlayer;
-type PlayerProjection = { pts_half_ppr?: number };
+type PlayerProjection = { pts_half_ppr?: number; pts_ppr?: number; pts_std?: number };
 
 export type ReportTeam = {
   rosterId: number;
@@ -133,6 +138,19 @@ export type WeeklyReport = {
       byPoints: number;
     }>;
   };
+  rookieDraft: {
+    season: string;
+    rounds: number;
+    picks: Array<{
+      pick: number;
+      rosterId: number;
+      name: string;
+      username: string;
+      seed: number | null;
+      maxPoints: number;
+      owners: Array<{ round: number; rosterId: number; name: string; username: string; traded: boolean }>;
+    }>;
+  } | null;
 };
 
 const PLAYOFF_SIMULATIONS = 10000;
@@ -221,17 +239,28 @@ function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
   })).sort((left, right) => right.powerIndex - left.powerIndex);
 }
 
-export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
-  const league = await getLeague(SLEEPER_LEAGUE_ID) as SleeperLeague;
+export type ReportLeague = {
+  leagueId: string;
+  // Wheel, The Power, Ladbrokes and Last Man Standing only run in the Redraft league.
+  sideGames: boolean;
+  playoffByRecord: number;
+  rookieDraft: boolean;
+};
+
+export const REDRAFT_REPORT_LEAGUE: ReportLeague = { leagueId: SLEEPER_LEAGUE_ID, sideGames: true, playoffByRecord: 5, rookieDraft: false };
+
+export async function getWeeklyReport(week: number, reportLeague: ReportLeague = REDRAFT_REPORT_LEAGUE): Promise<WeeklyReport> {
+  const { leagueId, sideGames } = reportLeague;
+  const league = await getLeague(leagueId) as SleeperLeague;
   const [rosterResult, userResult, playersResult, projectionsResult, wheelState, powerState, submissions, transactions, statsResult] = await Promise.all([
-    getLeagueRosters(SLEEPER_LEAGUE_ID),
-    getLeagueUsers(SLEEPER_LEAGUE_ID),
+    getLeagueRosters(leagueId),
+    getLeagueUsers(leagueId),
     getAllPlayers(),
     getWeeklyPlayerProjections(league.season, week),
-    getWheelState(),
-    getPowerState(),
-    getLadbrokesSubmissions(week),
-    getLeagueTransactions(SLEEPER_LEAGUE_ID, week)
+    sideGames ? getWheelState() : null,
+    sideGames ? getPowerState() : null,
+    sideGames ? getLadbrokesSubmissions(week) : [],
+    getLeagueTransactions(leagueId, week)
       .then((result) => Array.isArray(result) ? result as WeeklyTransaction[] : null)
       .catch(() => null),
     getWeeklyPlayerStats(league.season, week)
@@ -242,23 +271,25 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
   const users = userResult as SleeperUser[];
   const players = playersResult as Record<string, SleeperPlayer>;
   const projections = projectionsResult as Record<string, PlayerProjection>;
+  const receptionPoints = league.scoring_settings?.rec ?? 0.5;
+  const projectionKey = receptionPoints >= 1 ? "pts_ppr" : receptionPoints > 0 ? "pts_half_ppr" : "pts_std";
   const weeklyMatchups = await Promise.all(
-    Array.from({ length: week }, (_, index) => getLeagueMatchups(SLEEPER_LEAGUE_ID, index + 1) as Promise<SleeperMatchup[]>),
+    Array.from({ length: week }, (_, index) => getLeagueMatchups(leagueId, index + 1) as Promise<SleeperMatchup[]>),
   );
   const earlierTransactions = await Promise.all(
-    Array.from({ length: week - 1 }, (_, index) => getLeagueTransactions(SLEEPER_LEAGUE_ID, index + 1)
+    Array.from({ length: week - 1 }, (_, index) => getLeagueTransactions(leagueId, index + 1)
       .then((result) => Array.isArray(result) ? result as WeeklyTransaction[] : null)
       .catch(() => null)),
   );
   const regularSeasonWeeks = Math.max(week, Number(league.settings?.playoff_week_start ?? 15) - 1);
   const futureMatchups = await Promise.all(
     Array.from({ length: regularSeasonWeeks - week }, (_, index) =>
-      (getLeagueMatchups(SLEEPER_LEAGUE_ID, week + 1 + index) as Promise<SleeperMatchup[]>).catch(() => [] as SleeperMatchup[])),
+      (getLeagueMatchups(leagueId, week + 1 + index) as Promise<SleeperMatchup[]>).catch(() => [] as SleeperMatchup[])),
   );
   let nextWeekMatchups: SleeperMatchup[] = futureMatchups[0] ?? [];
   if (futureMatchups.length === 0) {
     try {
-      nextWeekMatchups = await getLeagueMatchups(SLEEPER_LEAGUE_ID, week + 1) as SleeperMatchup[];
+      nextWeekMatchups = await getLeagueMatchups(leagueId, week + 1) as SleeperMatchup[];
     } catch {
       nextWeekMatchups = [];
     }
@@ -340,7 +371,7 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       benchPoints,
       lineupEfficiency: availablePoints > 0 ? Math.min(100, score / availablePoints * 100) : 0,
       allPlayWins: scores.filter((candidate) => candidate < score).length,
-      projectedPoints: (matchup.starters ?? []).reduce((total, id) => total + (projections[id]?.pts_half_ppr ?? 0), 0),
+      projectedPoints: (matchup.starters ?? []).reduce((total, id) => total + (projections[id]?.[projectionKey] ?? 0), 0),
       bestBenchedPlayer: bestBenchedPlayer ? playerName(bestBenchedPlayer.id, players) : "the unused bench",
       bestBenchedPoints: bestBenchedPlayer?.points ?? 0,
       weakestStarter: weakestStarter ? playerName(weakestStarter.id, players) : "the weakest starter",
@@ -411,8 +442,8 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
     const projectionGap = loser.projectedPoints - winner.projectedPoints;
     return projectionGap > 0 ? [{ winner, loser, projectionGap }] : [];
   }).sort((left, right) => right.projectionGap - left.projectionGap);
-  const wheelResult = wheelState.weekResults.find((result) => result.week === week);
-  const wheelWinner = wheelState.weekWinners.find((winner) => winner.week === week);
+  const wheelResult = wheelState?.weekResults.find((result) => result.week === week);
+  const wheelWinner = wheelState?.weekWinners.find((winner) => winner.week === week);
   const autoWheelWinner = wheelResult && !wheelWinner
     ? await calculateWheelWinner(week, wheelResult.scenario).catch(() => null)
     : null;
@@ -422,17 +453,17 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       winnerName: wheelWinner?.winnerName ?? autoWheelWinner?.winnerName,
       details: wheelWinner?.details ?? autoWheelWinner?.details,
     }
-    : week === 1
+    : sideGames && week === 1
       ? { scenario: "Highest Bench Score", winnerName: "Tee", details: "Highest points on bench" }
       : null;
-  const powerHolder = powerState.history.find((entry) => entry.week === week);
+  const powerHolder = powerState?.history.find((entry) => entry.week === week);
   const owners = teams.map((team) => ({ rosterId: team.rosterId, ownerId: "", displayName: team.name, username: `@${team.username}` }));
   const ladbrokes = scoreLadbrokesWeek(week, matchups, submissions, owners);
-  const publishedLadbrokes = submissions.length === 0 ? await getPublishedLadbrokesWeek(week) : null;
+  const publishedLadbrokes = sideGames && submissions.length === 0 ? await getPublishedLadbrokesWeek(week) : null;
   const ladbrokesWinners = publishedLadbrokes?.winners ?? ladbrokes.winners;
   const ladbrokesTotal = publishedLadbrokes?.standings[0]?.total ?? ladbrokes.standings[0]?.total ?? reportMatchups.length;
   const eliminatedRosterIds = new Set<number>();
-  const completedLmsWeeks = Math.min(week, 12, Number(league.settings?.last_scored_leg ?? 0));
+  const completedLmsWeeks = sideGames ? Math.min(week, 12, Number(league.settings?.last_scored_leg ?? 0)) : 0;
   const eliminated = weeklyMatchups.slice(0, completedLmsWeeks).flatMap((weekMatchups, index) => {
     const eligible = weekMatchups
       .filter((matchup) => !eliminatedRosterIds.has(matchup.roster_id) && matchup.points != null)
@@ -463,8 +494,49 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
       return { rosterId: roster.roster_id, wins: record.wins, losses: record.losses, ties: record.ties, points: record.points, scores: record.scores };
     }),
     remainingSchedule,
-    { simulations: PLAYOFF_SIMULATIONS, seed: Number(league.season) * 100 + week },
+    { simulations: PLAYOFF_SIMULATIONS, seed: Number(league.season) * 100 + week, byRecord: reportLeague.playoffByRecord },
   );
+  const rookieDraft = reportLeague.rookieDraft ? await (async () => {
+    const draftSeason = String(Number(league.season) + 1);
+    const rounds = Number(league.settings?.draft_rounds ?? 4);
+    const currentLeg = Math.max(week, Number(league.settings?.leg ?? league.settings?.last_scored_leg ?? week));
+    const [tradedPicks, laterTransactions] = await Promise.all([
+      getTradedPicks(leagueId) as Promise<DraftPickTrade[]>,
+      Promise.all(Array.from({ length: currentLeg - week }, (_, index) =>
+        (getLeagueTransactions(leagueId, week + 1 + index) as Promise<Array<{ type: string; status: string; status_updated?: number; draft_picks?: DraftPickTrade[] }>>)),
+      ),
+    ]);
+    const laterTrades = laterTransactions.flat()
+      .filter((transaction) => transaction.type === "trade" && transaction.status === "complete" && transaction.draft_picks?.length)
+      .sort((left, right) => (left.status_updated ?? 0) - (right.status_updated ?? 0))
+      .map((transaction) => transaction.draft_picks ?? []);
+    const ownerOf = pickOwnersAt(tradedPicks, laterTrades, draftSeason);
+    const maxPoints = new Map<number, number>();
+    for (const weekMatchups of weeklyMatchups) {
+      for (const matchup of weekMatchups) {
+        maxPoints.set(matchup.roster_id, (maxPoints.get(matchup.roster_id) ?? 0) + maxPointsFor(matchup, players, league.roster_positions ?? []));
+      }
+    }
+    const identityOf = (rosterId: number) => rosterNames.get(rosterId) ?? { name: `Team ${rosterId}`, username: `Team${rosterId}` };
+    const order = rookieDraftOrder(rosters.map((roster) => {
+      const record = seasonRecords.get(roster.roster_id) ?? { wins: 0, ties: 0, points: 0 };
+      return { rosterId: roster.roster_id, wins: record.wins, ties: record.ties, points: record.points, maxPoints: maxPoints.get(roster.roster_id) ?? 0 };
+    }), reportLeague.playoffByRecord);
+    return {
+      season: draftSeason,
+      rounds,
+      picks: order.map((entry) => ({
+        ...entry,
+        name: identityOf(entry.rosterId).name,
+        username: identityOf(entry.rosterId).username,
+        maxPoints: Math.round((maxPoints.get(entry.rosterId) ?? 0) * 100) / 100,
+        owners: Array.from({ length: rounds }, (_, index) => {
+          const ownerId = ownerOf(index + 1, entry.rosterId);
+          return { round: index + 1, rosterId: ownerId, name: identityOf(ownerId).name, username: identityOf(ownerId).username, traded: ownerId !== entry.rosterId };
+        }),
+      })),
+    };
+  })().catch(() => null) : null;
   const transactionsOrEmpty = transactions ?? [];
   // Dropped players usually aren't rostered, so score them from raw stats with league scoring; rostered points win when present.
   const droppedPlayerPoints: Record<string, number> = {};
@@ -551,5 +623,6 @@ export async function getWeeklyReport(week: number): Promise<WeeklyReport> {
         return { rosterId: roster.roster_id, ...identity, wins: record.wins, losses: record.losses, points: record.points, ...odds };
       }).sort((left, right) => right.playoff - left.playoff || right.points - left.points),
     },
+    rookieDraft,
   };
 }

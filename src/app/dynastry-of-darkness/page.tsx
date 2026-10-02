@@ -21,6 +21,12 @@ export default function DynastryOfDarknessPage() {
       label: "Scoreboard",
     },
     {
+      title: "Weekly Newsletter",
+      description: "Matchup stories, power rankings, and playoff chances",
+      href: "/dynastry-of-darkness/newsletter",
+      label: "League dispatch",
+    },
+    {
       title: "Player High Scores",
       description: "Best individual player performances",
       href: "/dynastry-of-darkness/player-high-scores",
@@ -43,6 +49,12 @@ export default function DynastryOfDarknessPage() {
       description: "Draft board and performance analysis",
       href: "/dynastry-of-darkness/draft-analysis",
       label: "War room",
+    },
+    {
+      title: "Trade History",
+      description: "Every trade since day one, and who the picks became",
+      href: "/dynastry-of-darkness/trade-history",
+      label: "The ledger",
     }
   ];
 

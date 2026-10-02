@@ -3,7 +3,7 @@ import { mock, test } from "node:test";
 import { clearNewsletterCommentary, generateNewsletterCommentary, getNewsletterCommentary, validateNewsletterCommentary } from "./newsletter-commentary";
 import { sharedAcquireLock, sharedDelete } from "./shared-store";
 import type { WeeklyReport } from "./weekly-report";
-import { bestLegalBenchSwap, dumbestDropsOfWeek, faabBreakdown, leagueScoredPoints, matchupSummary, playoffField, simulatePlayoffOdds, waiverPickupsOfWeek, type WeeklyMatchup, type WeeklyTransaction } from "./weekly-report-analysis";
+import { bestLegalBenchSwap, dumbestDropsOfWeek, faabBreakdown, leagueScoredPoints, maxPointsFor, pickOwnersAt, rookieDraftOrder, matchupSummary, playoffField, simulatePlayoffOdds, waiverPickupsOfWeek, type WeeklyMatchup, type WeeklyTransaction } from "./weekly-report-analysis";
 import { CommentaryDiagnosticError, diagnosticStep, logCommentaryDiagnostic, safeDiagnosticException } from "./newsletter-diagnostics";
 
 test("diagnostics retain exception stacks and causes but redact secrets", async () => {
@@ -129,6 +129,33 @@ test("FAAB breakdown sums paid winning bids, skips $0 claims, and counts started
   assert.equal(teams[0].startedPoints, 10);
   assert.deepEqual(teams[0].players.map(({ playerId, bid, startedPoints }) => ({ playerId, bid, startedPoints })), [
     { playerId: "rb", bid: 20, startedPoints: 10 },
+  ]);
+});
+
+test("max PF fills fixed slots before flex slots", () => {
+  const players = { qb: { position: "QB" }, qb2: { position: "QB" }, rb: { position: "RB" }, wr: { position: "WR" }, wr2: { position: "WR" } };
+  const total = maxPointsFor(
+    { roster_id: 1, matchup_id: 1, players: ["qb", "qb2", "rb", "wr", "wr2"], players_points: { qb: 30, qb2: 25, rb: 10, wr: 20, wr2: 5 } },
+    players,
+    ["SUPER_FLEX", "QB", "WR", "FLEX", "BN"],
+  );
+  assert.equal(total, 85);
+});
+
+test("pick ownership rewinds later trades and draft order uses max PF then reversed seeds", () => {
+  const ownerOf = pickOwnersAt(
+    [{ season: "2027", round: 1, roster_id: 1, owner_id: 3, previous_owner_id: 2 }],
+    [[{ season: "2027", round: 1, roster_id: 1, owner_id: 3, previous_owner_id: 2 }]],
+    "2027",
+  );
+  assert.equal(ownerOf(1, 1), 2);
+  assert.equal(ownerOf(2, 1), 1);
+
+  const teams = Array.from({ length: 8 }, (_, index) => ({ rosterId: index + 1, wins: 8 - index, ties: 0, points: 100, maxPoints: 100 + index }));
+  const order = rookieDraftOrder(teams, 2, 3);
+  assert.deepEqual(order.map(({ rosterId, seed }) => ({ rosterId, seed })), [
+    { rosterId: 4, seed: null }, { rosterId: 5, seed: null }, { rosterId: 6, seed: null }, { rosterId: 7, seed: null }, { rosterId: 8, seed: null },
+    { rosterId: 3, seed: 3 }, { rosterId: 2, seed: 2 }, { rosterId: 1, seed: 1 },
   ]);
 });
 
