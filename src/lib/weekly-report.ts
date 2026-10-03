@@ -25,6 +25,7 @@ import {
   rookieDraftOrder,
   simulatePlayoffOdds,
   waiverPickupsOfWeek,
+  whiffOfTheWeek,
   type DraftPickTrade,
   type WeeklyPlayer,
   type WeeklyTransaction,
@@ -67,6 +68,7 @@ export type ReportTeam = {
   blurb: string;
   advice: string;
   starters: Array<{ playerId: string; name: string; points: number | null }>;
+  benchPlayers: Array<{ playerId: string; name: string; position: string; points: number }>;
   commentaryFacts: ReturnType<typeof matchupSummary>["commentaryFacts"];
   seasonWins: number;
   seasonLosses: number;
@@ -102,6 +104,13 @@ export type WeeklyReport = {
     available: boolean;
     losers: Array<{ playerId: string; playerName: string; position: string; managerName: string; rosterId: number; points: number }>;
   };
+  whiffOfTheWeek: {
+    managerName: string;
+    opponentName: string;
+    incomingPlayer: string;
+    outgoingPlayer: string;
+    winMargin: number;
+  } | null;
   faab: {
     available: boolean;
     budget: number;
@@ -387,6 +396,16 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
         name: playerName(playerId, players),
         points: playerPoints[playerId] ?? null,
       })),
+      benchPlayers: (matchup.players ?? [])
+        .filter((playerId) => playerId !== "0" && !starters.has(playerId) && Number.isFinite(playerPoints[playerId]))
+        .map((playerId) => ({
+          playerId,
+          name: playerName(playerId, players),
+          position: players[playerId]?.position ?? "",
+          points: playerPoints[playerId],
+        }))
+        .sort((left, right) => right.points - left.points)
+        .slice(0, 5),
       ...matchupSummary(
         identity.name,
         opponentIdentity?.name ?? "Bye week",
@@ -430,6 +449,7 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
     const team2 = teamsByRoster.get(pair[1]?.roster_id);
     return team1 && team2 ? [{ id, team1, team2, margin: Math.abs(team1.score - team2.score) }] : [];
   }).sort((left, right) => left.id - right.id);
+  const whiff = sideGames ? whiffOfTheWeek(matchups, players, league.roster_positions ?? []) : null;
   const sortedByScore = [...teams].sort((left, right) => right.score - left.score);
   const sortedByBench = [...teams].sort((left, right) => right.benchPoints - left.benchPoints);
   const topPlayers = matchups.flatMap((matchup) => (matchup.starters ?? []).map((playerId) => ({
@@ -588,6 +608,13 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
         managerName: rosterNames.get(drop.rosterId)?.name ?? `Team ${drop.rosterId}`,
       })),
     },
+    whiffOfTheWeek: whiff ? {
+      managerName: rosterNames.get(whiff.rosterId)?.name ?? `Team ${whiff.rosterId}`,
+      opponentName: rosterNames.get(whiff.opponentRosterId)?.name ?? `Team ${whiff.opponentRosterId}`,
+      incomingPlayer: playerName(whiff.incomingId, players),
+      outgoingPlayer: whiff.outgoingId === "0" ? "the empty slot" : playerName(whiff.outgoingId, players),
+      winMargin: whiff.winMargin,
+    } : null,
     faab: {
       available: transactions !== null && earlierTransactions.every((weekTransactions) => weekTransactions !== null),
       budget: Number(league.settings?.waiver_budget ?? 100),

@@ -204,6 +204,12 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
               {report.dumbestDrop.available && !report.dumbestDrop.losers.length && <p>No dropped player recorded a score this week.</p>}
               {report.dumbestDrop.losers.length > 1 && <p>Shared shame.</p>}
             </article>
+            {report.whiffOfTheWeek && <article>
+              <span>Whiff of the week</span>
+              <h3>{report.whiffOfTheWeek.managerName}</h3>
+              <p>Starting {report.whiffOfTheWeek.incomingPlayer} instead of {report.whiffOfTheWeek.outgoingPlayer} would have turned the loss into a {score(report.whiffOfTheWeek.winMargin)}-point win over {report.whiffOfTheWeek.opponentName}.</p>
+              <p>You&apos;re not as dull as you look.</p>
+            </article>}
             <article><span>The Power</span><h3>{report.powerHolder?.holderName ?? "Awaiting result"}</h3><p>{report.powerHolder?.reason ?? "Sleeper has not finalized this chapter."}</p></article>
             <article><span>Spin the Wheel</span><h3>{report.wheel?.scenario ?? "No result recorded"}</h3><p>{report.wheel?.winnerName ? `${report.wheel.winnerName} · ${report.wheel.details ?? "Winner recorded"}` : "Commissioner result pending."}</p></article>
             <article><span>Ladbrokes</span><h3>{report.ladbrokes.winners.length ? report.ladbrokes.winners.map((winner) => winner.displayName).join(" · ") : "No entries"}</h3><p>{report.ladbrokes.winners.length ? `${report.ladbrokes.winners[0].correct}/${report.ladbrokes.total} correct · joint winners of the weekly prediction card.` : "No locked entries were recorded."}</p></article>

@@ -3,7 +3,7 @@ import { mock, test } from "node:test";
 import { clearNewsletterCommentary, generateNewsletterCommentary, getNewsletterCommentary, validateNewsletterCommentary } from "./newsletter-commentary";
 import { sharedAcquireLock, sharedDelete } from "./shared-store";
 import type { WeeklyReport } from "./weekly-report";
-import { bestLegalBenchSwap, dumbestDropsOfWeek, faabBreakdown, leagueScoredPoints, maxPointsFor, pickOwnersAt, rookieDraftOrder, matchupSummary, playoffField, simulatePlayoffOdds, waiverPickupsOfWeek, type WeeklyMatchup, type WeeklyTransaction } from "./weekly-report-analysis";
+import { bestLegalBenchSwap, dumbestDropsOfWeek, faabBreakdown, leagueScoredPoints, maxPointsFor, pickOwnersAt, rookieDraftOrder, matchupSummary, playoffField, simulatePlayoffOdds, waiverPickupsOfWeek, whiffOfTheWeek, type WeeklyMatchup, type WeeklyTransaction } from "./weekly-report-analysis";
 import { CommentaryDiagnosticError, diagnosticStep, logCommentaryDiagnostic, safeDiagnosticException } from "./newsletter-diagnostics";
 
 test("diagnostics retain exception stacks and causes but redact secrets", async () => {
@@ -58,6 +58,15 @@ test("bench swaps respect positions, including flex slots and empty starters", (
   assert.equal(bestLegalBenchSwap(matchup, players, ["QB", "FLEX"])?.incomingId, "benchRunningBack");
   assert.equal(bestLegalBenchSwap({ ...matchup, starters: ["quarterback", "0"] }, players, ["QB", "WR"])?.gain, 20);
   assert.equal(bestLegalBenchSwap(matchup, players, []), null);
+});
+
+test("whiff of the week awards a legal swap that changes a loss to a win, but skips ties", () => {
+  const award = whiffOfTheWeek([matchup, opponent], players, ["QB", "WR", "BN"]);
+  assert.equal(award?.rosterId, 1);
+  assert.equal(award?.incomingId, "benchReceiver");
+  assert.equal(award?.outgoingId, "receiver");
+  assert.equal(award?.winMargin, 1);
+  assert.equal(whiffOfTheWeek([matchup, { ...opponent, points: 110 }], players, ["QB", "WR", "BN"]), null);
 });
 
 test("summary distinguishes winning swaps, tying swaps, and insufficient swaps", () => {
@@ -254,7 +263,7 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
   const report = {
     season: "2026",
     week: 1,
-    powerRankings: [{ rosterId: 1, name: "Manager", opponentName: "Rival", score: 100, opponentScore: 109, nextOpponentName: "Next rival", blurb: summary().blurb, starters: [], commentaryFacts: summary().commentaryFacts, lineupEfficiency: 82.5, benchPoints: 50, bestBenchedPlayer: "Bench RB", bestBenchedPoints: 30, weakestStarter: "Starting QB", weakestStarterPoints: 2, powerIndex: 70, rankMovement: -2, allPlayWins: 5 }],
+    powerRankings: [{ rosterId: 1, name: "Manager", opponentName: "Rival", score: 100, opponentScore: 109, nextOpponentName: "Next rival", blurb: summary().blurb, starters: [], benchPlayers: [{ playerId: "bench", name: "Bench RB", position: "RB", points: 30 }], commentaryFacts: summary().commentaryFacts, lineupEfficiency: 82.5, benchPoints: 50, bestBenchedPlayer: "Bench RB", bestBenchedPoints: 30, weakestStarter: "Starting QB", weakestStarterPoints: 2, powerIndex: 70, rankMovement: 1, allPlayWins: 5, seasonWins: 2, seasonLosses: 1, seasonPoints: 300 }],
   } as unknown as WeeklyReport;
   const teams = [{ rosterId: 1, blurb: "Manager lost 100 to 109. Bench WR could have saved this one.", advice: "Next: Next rival. Fix that receiver slot." }];
   let fail = false;
@@ -283,17 +292,25 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
     const facts = JSON.parse(request.input);
     assert.equal(facts.teams.length, report.powerRankings.length);
     assert.deepEqual(facts.teams[0].matchup, report.powerRankings[0].commentaryFacts);
-    for (const field of ["score", "opponentScore", "lineupEfficiency", "benchPoints", "powerIndex", "rankMovement", "allPlayWins"] as const) {
+    for (const field of ["score", "opponentScore", "lineupEfficiency", "benchPoints", "powerIndex", "rankMovement"] as const) {
       assert.equal(facts.teams[0][field], report.powerRankings[0][field]);
     }
+    assert.equal(facts.teams[0].currentRank, 1);
+    assert.equal(facts.teams[0].previousRank, 2);
+    assert.deepEqual(facts.teams[0].seasonRecord, { wins: 2, losses: 1, pointsFor: 300 });
+    assert.deepEqual(facts.teams[0].allPlay, { wins: 5, possible: 0 });
+    assert.deepEqual(facts.teams[0].relevantBenchPlayers, report.powerRankings[0].benchPlayers);
+    assert.deepEqual(facts.teams[0].verifiedInjuries, []);
     assert.equal(facts.teams[0].bestBenchedPlayer.points, 30);
     assert.equal(facts.teams[0].nextOpponent, "Next rival");
     assert.equal(request.tool_choice, "auto");
     assert.equal(request.include, undefined);
     assert.deepEqual(Object.keys(request.text.format.schema.properties.teams.items.properties), ["rosterId", "blurb", "advice"]);
+    assert.match(request.instructions, /exactly 3–4 sentences and no more than 90 words total/);
     assert.match(request.instructions, /Never alter, recalculate, round, estimate or invent/);
-    assert.match(request.instructions, /silently omit it and complete every blurb/);
-    assert.match(request.instructions, /Vary openings, rhythm, jokes and focus across ALL teams/);
+    assert.match(request.instructions, /Mention an injury only when that data explicitly supports it/);
+    assert.match(request.instructions, /Explain ranking movement by connecting this week to the season-long body of work/);
+    assert.match(request.instructions, /Vary openings, rhythm, humour and focus across all teams/);
     assert.deepEqual(await generateNewsletterCommentary(report), first);
     assert.equal(fetchMock.mock.callCount(), 1);
     const corrected = { ...report, powerRankings: report.powerRankings.map((team) => ({ ...team, score: 101 })) };

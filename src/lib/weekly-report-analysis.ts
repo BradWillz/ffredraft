@@ -66,6 +66,24 @@ export function bestLegalBenchSwap(
   return best;
 }
 
+export function whiffOfTheWeek(
+  matchups: WeeklyMatchup[],
+  players: Record<string, WeeklyPlayer>,
+  rosterPositions: string[],
+) {
+  const candidates = matchups.flatMap((matchup) => {
+    const opponent = matchup.matchup_id == null
+      ? undefined
+      : matchups.find((candidate) => candidate.matchup_id === matchup.matchup_id && candidate.roster_id !== matchup.roster_id);
+    if (!opponent || (matchup.points ?? 0) >= (opponent.points ?? 0)) return [];
+    const swap = bestLegalBenchSwap(matchup, players, rosterPositions);
+    if (!swap) return [];
+    const winMargin = Math.round(((matchup.points ?? 0) - (opponent.points ?? 0) + swap.gain) * 100) / 100;
+    return winMargin > 0 ? [{ rosterId: matchup.roster_id, opponentRosterId: opponent.roster_id, ...swap, winMargin }] : [];
+  });
+  return candidates.sort((left, right) => right.winMargin - left.winMargin || right.gain - left.gain || left.rosterId - right.rosterId)[0] ?? null;
+}
+
 // Fill the most restrictive slots first so flex slots get the best leftovers.
 export function maxPointsFor(matchup: WeeklyMatchup, players: Record<string, WeeklyPlayer>, rosterPositions: string[]) {
   const slots = rosterPositions
