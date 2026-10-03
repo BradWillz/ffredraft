@@ -310,6 +310,9 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
     assert.match(request.instructions, /Never alter, recalculate, round, estimate or invent/);
     assert.match(request.instructions, /Mention an injury only when that data explicitly supports it/);
     assert.match(request.instructions, /Explain ranking movement by connecting this week to the season-long body of work/);
+    assert.match(request.instructions, /cut-throat sports columnist/);
+    assert.match(request.instructions, /one coherent argument/);
+    assert.match(request.instructions, /call out the mistake directly/);
     assert.match(request.instructions, /Vary openings, rhythm, humour and focus across all teams/);
     assert.deepEqual(await generateNewsletterCommentary(report), first);
     assert.equal(fetchMock.mock.callCount(), 1);
