@@ -63,18 +63,19 @@
 .nothing { color: #7c8c84; font-size: 13px; font-style: italic; }
 .empty { padding: 30px; color: #8a9a92; border: 1px dashed #2c3d36; text-align: center; }
 .methodology { margin-bottom: 16px; padding: 14px 16px; border: 1px solid #263630; background: #111816; color: #a9b7b0; font-size: 13px; line-height: 1.5; }
-.methodology summary, .outgoing summary, .grading summary { color: #f5c451; cursor: pointer; }
+.methodology ul { margin: 10px 0 0; padding-left: 18px; list-style: disc; display: grid; gap: 6px; }
+.methodology b { color: #e8efe9; }
+.methodology summary, .outgoing summary { color: #f5c451; cursor: pointer; }
 .outgoing { margin-top: 14px; font-size: 12px; }
 .outgoing ul { margin-top: 10px; }
-.grading { margin-top: 16px; padding-top: 14px; border-top: 1px solid #263630; font-size: 12px; line-height: 1.5; color: #a9b7b0; }
-.grading p { margin: 8px 0; }
-.grading details ul { margin-top: 8px; padding-left: 16px; list-style: disc; }
-.grades { display: flex; flex-wrap: wrap; gap: 20px; }
-.grades span { display: grid; gap: 4px; }
-.grades b { font: 900 32px/1 var(--font-display); color: #f5c451; }
-.grades b[data-grade="A"], .grades b[data-grade="B"] { color: #4fd1a5; }
-.grades b[data-grade="D"], .grades b[data-grade="F"] { color: #ff6f91; }
-.source { margin: 0; padding: 10px 16px; border-top: 1px solid #263630; color: #8a9a92; font-size: 11px; overflow-wrap: anywhere; }
+.grading { margin-top: 14px; padding-top: 12px; border-top: 1px solid #263630; font-size: 12px; line-height: 1.45; color: #a9b7b0; }
+.grading p { margin: 6px 0 0; }
+.gradeLabel { display: flex; align-items: center; gap: 10px; color: #8a9a92; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.gradeLabel b { font: 900 26px/1 var(--font-display); color: #f5c451; }
+.gradeLabel b[data-grade="A"], .gradeLabel b[data-grade="B"] { color: #4fd1a5; }
+.gradeLabel b[data-grade="D"], .gradeLabel b[data-grade="F"] { color: #ff6f91; }
+.source { margin: 18px 0 0; color: #8a9a92; font-size: 11px; }
+.source a { color: #f5c451; }
 .error { padding: 14px; border: 1px solid #ff6f91; color: #ff6f91; }
 
 @media (max-width: 640px) {

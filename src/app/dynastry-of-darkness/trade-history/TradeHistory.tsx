@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { TradeAsset, TradeRecord, TradeSeason } from "@/lib/trade-history";
-import type { SideGrade, TradeAssessment } from "@/lib/trade-grading";
+import { isOffseasonTrade } from "@/lib/trade-grading";
+import type { SideAssessment, TradeAssessment } from "@/lib/trade-valuation";
 import styles from "./trade-history.module.css";
 
 function ordinal(round: number) {
@@ -12,11 +13,9 @@ function ordinal(round: number) {
 
 function tradeWhen(trade: TradeRecord) {
   const date = new Date(trade.timestamp);
-  const month = date.getUTCMonth();
-  const offseason = trade.week <= 1 && month >= 1 && month <= 7;
   return {
     date: date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
-    label: offseason ? "Offseason" : `Week ${Math.max(1, trade.week)}`,
+    label: isOffseasonTrade(trade) ? "Offseason" : `Week ${Math.max(1, trade.week)}`,
   };
 }
 
@@ -57,25 +56,17 @@ function Asset({ asset }: { asset: TradeAsset }) {
   );
 }
 
-function GradeCard({ grade }: { grade: SideGrade | undefined }) {
-  if (!grade || grade.status === "unrated") {
-    return <div className={styles.grading}><strong>Not rated</strong><p>{grade?.reason ?? "No valuation assessment available."}</p></div>;
-  }
-  const delta = (value: number | undefined) => value === undefined ? "Unavailable" : `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
+function GradeCard({ grade }: { grade: SideAssessment | null | undefined }) {
+  if (!grade) return <div className={styles.grading}><p>Not graded: values unavailable.</p></div>;
   return (
     <div className={styles.grading}>
-      <div className={styles.grades}>
-        <span>At the trade <b data-grade={grade.now}>{grade.now}</b></span>
-        <span>Future base case <b data-grade={grade.future}>{grade.future}</b></span>
-      </div>
-      <p>{grade.strategy} · {grade.score?.toFixed(1)}/100</p>
-      <p>Market value: {grade.received?.toLocaleString("en-GB")} received / {grade.given?.toLocaleString("en-GB")} given up.</p>
-      <p>Value edge {delta(grade.marketDelta)} · Starter impact {delta(grade.lineupDelta)} · Depth impact {delta(grade.depthDelta)}</p>
-      <p>Conditional future range: <strong>{grade.downside} to {grade.upside}</strong>. Scenarios, not predictions.</p>
-      <details><summary>What would change the grade?</summary><ul>{grade.scenarios?.map((scenario, index) => <li key={index}>{scenario}</li>)}</ul></details>
+      <span className={styles.gradeLabel}>Trade Grade <b data-grade={grade.grade}>{grade.grade}</b></span>
+      <p>{grade.summary}</p>
     </div>
   );
 }
+
+const GRADE_ORDER: Record<string, number> = { A: 4, B: 3, C: 2, D: 1, F: 0 };
 
 export default function TradeHistory({ seasons, assessments }: { seasons: TradeSeason[]; assessments: Record<string, TradeAssessment> }) {
   const [season, setSeason] = useState(seasons[0]?.season ?? "");
@@ -96,7 +87,8 @@ export default function TradeHistory({ seasons, assessments }: { seasons: TradeS
     if (sort === "best") {
       const score = (trade: TradeRecord) => {
         const rosterId = trade.sides.find((side) => side.manager.username === manager)?.manager.rosterId;
-        return assessments[trade.id]?.sides.find((side) => side.rosterId === rosterId)?.score ?? -1;
+        const grade = assessments[trade.id]?.sides.find((candidate) => candidate?.rosterId === rosterId)?.grade;
+        return grade ? GRADE_ORDER[grade] : -1;
       };
       filtered.sort((left, right) => score(right) - score(left) || right.timestamp - left.timestamp);
     }
@@ -127,11 +119,12 @@ export default function TradeHistory({ seasons, assessments }: { seasons: TradeS
   return (
     <section>
       <details className={styles.methodology}>
-        <summary>How team-specific trade grades work</summary>
-        <p>A = 80+, B = 65–79.9, C = 45–64.9, D = 30–44.9, F = below 30. An even trade starts at 50 (C).</p>
-        <p>At-trade grades combine received-versus-given market value, the best legal starting lineup and remaining bench strength. Market / starters / depth weights are 55 / 35 / 10 for the top third of standings, 65 / 25 / 10 for the middle third and 80 / 10 / 10 for the bottom third. Standings are a strategy proxy, not a declaration of a manager&apos;s intent.</p>
-        <p>Future grades compare package values at the midpoint of supplied low/high outcomes. The upside pairs received assets&apos; highs with outgoing assets&apos; lows; downside reverses that. These are conditional bounds, not probabilities or guarantees. Pick ranges must reflect the original team&apos;s likely draft slot, that draft class and its prospects; completed selections shown below are hindsight and never used in at-trade grades.</p>
-        <p>Only authorised snapshots from the seven days before a trade are accepted. Roster, standings, format and valuations must describe that time. Missing inputs mean Not rated. Values must share a scale; this is our transparent model, not KeepTradeCut&apos;s proprietary calculator or a claim of access to its API.</p>
+        <summary>How trades are graded</summary>
+        <ul>
+          <li>Each manager&apos;s grade compares what they received with what they gave up, using Stats Guy Superflex dynasty values from the day before the trade. It also counts the change to their best starting lineup, which matters more for teams near the top of the standings.</li>
+          <li>Trades before September 2025 (when Stats Guy history starts) use today&apos;s values instead.</li>
+          <li>Values are adjusted for TE premium and first-down scoring. FAAB is not valued. A = won by about 30%+, C = roughly even, F = lost by about 30%+.</li>
+        </ul>
       </details>
       <nav className={styles.tabs} aria-label="Seasons">
         {seasons.map((candidate) => (
@@ -201,11 +194,10 @@ export default function TradeHistory({ seasons, assessments }: { seasons: TradeS
                           ? side.givesUp.map((asset, assetIndex) => <Asset key={assetIndex} asset={asset} />)
                           : <li className={styles.nothing}>Nothing</li>}</ul>
                     </details>
-                    <GradeCard grade={assessments[trade.id]?.sides.find((grade) => grade.rosterId === side.manager.rosterId)} />
+                    <GradeCard grade={assessments[trade.id]?.sides.find((grade) => grade?.rosterId === side.manager.rosterId)} />
                   </div>
                 ))}
               </div>
-              {assessments[trade.id]?.source && <p className={styles.source}>Valuation source: {assessments[trade.id].source} · As of {assessments[trade.id].asOf} · Future horizon: {assessments[trade.id].futureHorizon}</p>}
             </article>
           );
         })}

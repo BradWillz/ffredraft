@@ -3,14 +3,36 @@ import { getDisplayName, getRosterUsername, normalizeUsername } from "./normaliz
 
 const BASE_URL = "https://api.sleeper.app/v1";
 
-type SleeperLeague = { league_id: string; season: string; previous_league_id?: string | null; roster_positions: string[]; total_rosters: number };
+export type SleeperLeague = {
+  league_id: string;
+  season: string;
+  status?: string;
+  previous_league_id?: string | null;
+  roster_positions: string[];
+  total_rosters: number;
+  scoring_settings?: Record<string, number>;
+  settings?: { playoff_week_start?: number; last_scored_leg?: number };
+};
 type SleeperUser = { user_id: string; username?: string; display_name?: string };
-type SleeperRoster = { roster_id: number; owner_id?: string | null };
-type SleeperPlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string };
-type SleeperDraft = { draft_id: string; season: string; type: string; slot_to_roster_id?: Record<string, number> | null };
-type SleeperDraftPick = { round: number; draft_slot: number; pick_no: number; roster_id: number; player_id: string; metadata?: { first_name?: string; last_name?: string; position?: string } };
+export type SleeperRoster = {
+  roster_id: number;
+  owner_id?: string | null;
+  players?: string[] | null;
+  settings?: { wins?: number; losses?: number; ties?: number; fpts?: number; fpts_decimal?: number };
+};
+export type SleeperPlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string; age?: number; birth_date?: string };
+export type SleeperDraft = {
+  draft_id: string;
+  season: string;
+  type: string;
+  status?: string;
+  start_time?: number | null;
+  last_picked?: number | null;
+  slot_to_roster_id?: Record<string, number | null> | null;
+};
+export type SleeperDraftPick = { round: number; draft_slot: number; pick_no: number; roster_id: number; player_id: string; metadata?: { first_name?: string; last_name?: string; position?: string } };
 type SleeperPickMove = { season: string; round: number; roster_id: number; owner_id: number; previous_owner_id: number };
-type SleeperTrade = {
+export type SleeperTransaction = {
   transaction_id: string;
   type: string;
   status: string;
@@ -24,12 +46,14 @@ type SleeperTrade = {
 };
 
 export type TradeManager = { rosterId: number; name: string; username: string };
+export type PickSelection = { pickLabel: string; playerId: string; playerName: string; position: string; pickedBy: string };
 export type TradeAsset =
   | { kind: "player"; playerId: string; name: string; position: string; team: string }
-  | { kind: "pick"; season: string; round: number; originalRosterId: number; originalOwner: string; selection: { pickLabel: string; playerName: string; position: string; pickedBy: string } | null; pending: boolean }
+  | { kind: "pick"; season: string; round: number; originalRosterId: number; originalOwner: string; selection: PickSelection | null; pending: boolean }
   | { kind: "faab"; amount: number };
 export type TradeRecord = {
   id: string;
+  leagueId: string;
   season: string;
   week: number;
   timestamp: number;
@@ -38,10 +62,14 @@ export type TradeRecord = {
   sides: Array<{ manager: TradeManager; receives: TradeAsset[]; givesUp: TradeAsset[] | null }>;
 };
 export type TradeSeason = { season: string; trades: TradeRecord[] };
+export type LeagueData = { league: SleeperLeague; rosters: SleeperRoster[]; transactions: SleeperTransaction[]; managers: Map<number, TradeManager> };
+export type DraftData = { draft: SleeperDraft; picks: SleeperDraftPick[] };
+// Leagues are ordered newest first, following previous_league_id.
+export type TradeLedger = { seasons: TradeSeason[]; leagues: LeagueData[]; drafts: DraftData[]; players: Record<string, SleeperPlayer> };
 
 const revalidate = { next: { revalidate: 900 } };
 
-async function sleeper<T>(path: string): Promise<T> {
+export async function sleeper<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, revalidate);
   if (!response.ok) throw new Error(`Sleeper API error: ${response.status} ${path}`);
   return response.json() as Promise<T>;
@@ -51,22 +79,22 @@ function playerLabel(player: SleeperPlayer | undefined, fallback: string) {
   return player?.full_name || [player?.first_name, player?.last_name].filter(Boolean).join(" ") || fallback;
 }
 
-export async function getTradeHistory(startLeagueId: string): Promise<TradeSeason[]> {
-  const leagues: SleeperLeague[] = [];
-  for (let leagueId: string | null | undefined = startLeagueId; leagueId && leagueId !== "0" && leagues.length < 20;) {
+export async function getTradeLedger(startLeagueId: string): Promise<TradeLedger> {
+  const chain: SleeperLeague[] = [];
+  for (let leagueId: string | null | undefined = startLeagueId; leagueId && leagueId !== "0" && chain.length < 20;) {
     const league: SleeperLeague = await sleeper<SleeperLeague>(`/league/${leagueId}`);
-    leagues.push(league);
+    chain.push(league);
     leagueId = league.previous_league_id;
   }
 
   const players = await getAllPlayers() as Record<string, SleeperPlayer>;
-  const seasons = await Promise.all(leagues.map(async (league) => {
+  const seasons = await Promise.all(chain.map(async (league) => {
     const [users, rosters, drafts, ...legs] = await Promise.all([
       sleeper<SleeperUser[]>(`/league/${league.league_id}/users`),
       sleeper<SleeperRoster[]>(`/league/${league.league_id}/rosters`),
       sleeper<SleeperDraft[]>(`/league/${league.league_id}/drafts`),
       ...Array.from({ length: 19 }, (_, leg) =>
-        sleeper<SleeperTrade[]>(`/league/${league.league_id}/transactions/${leg}`).catch(() => [] as SleeperTrade[])),
+        sleeper<SleeperTransaction[]>(`/league/${league.league_id}/transactions/${leg}`).catch(() => [] as SleeperTransaction[])),
     ]);
     const usersById = new Map(users.map((user) => [user.user_id, user]));
     const managers = new Map(rosters.map((roster) => {
@@ -76,22 +104,24 @@ export async function getTradeHistory(startLeagueId: string): Promise<TradeSeaso
       const username = user?.username || user?.display_name || override || `Team${roster.roster_id}`;
       return [roster.roster_id, { rosterId: roster.roster_id, name: getDisplayName(username), username: normalizeUsername(username) }];
     }));
-    const trades = [...new Map(legs.flat()
-      .filter((transaction) => transaction.type === "trade" && transaction.status === "complete")
+    const transactions = [...new Map(legs.flat()
+      .filter((transaction) => transaction.status === "complete")
       .map((transaction) => [transaction.transaction_id, transaction])).values()];
-    return { league, managers, drafts, trades };
+    return { league, rosters, managers, drafts, transactions };
   }));
 
-  const draftsBySeason = new Map<string, { draft: SleeperDraft; picks: SleeperDraftPick[]; managers: Map<number, TradeManager> }>();
-  await Promise.all(seasons.flatMap(({ drafts, managers }) => drafts.map(async (summary) => {
+  const drafts: DraftData[] = [];
+  const draftsBySeason = new Map<string, DraftData & { managers: Map<number, TradeManager> }>();
+  await Promise.all(seasons.flatMap(({ drafts: summaries, managers }) => summaries.map(async (summary) => {
     const [draft, picks] = await Promise.all([
       sleeper<SleeperDraft>(`/draft/${summary.draft_id}`),
       sleeper<SleeperDraftPick[]>(`/draft/${summary.draft_id}/picks`),
     ]);
+    drafts.push({ draft, picks });
     draftsBySeason.set(draft.season, { draft, picks, managers });
   })));
 
-  const selectionFor = (season: string, round: number, originalRosterId: number) => {
+  const selectionFor = (season: string, round: number, originalRosterId: number): PickSelection | null => {
     const draft = draftsBySeason.get(season);
     if (!draft) return null;
     const slot = Object.entries(draft.draft.slot_to_roster_id ?? {}).find(([, rosterId]) => rosterId === originalRosterId)?.[0];
@@ -100,17 +130,19 @@ export async function getTradeHistory(startLeagueId: string): Promise<TradeSeaso
     const player = players[pick.player_id];
     return {
       pickLabel: `${round}.${String(pick.draft_slot).padStart(2, "0")}`,
+      playerId: pick.player_id,
       playerName: playerLabel(player, [pick.metadata?.first_name, pick.metadata?.last_name].filter(Boolean).join(" ") || "Unknown player"),
       position: player?.position ?? pick.metadata?.position ?? "",
       pickedBy: draft.managers.get(pick.roster_id)?.name ?? `Team ${pick.roster_id}`,
     };
   };
 
-  return seasons.map(({ league, managers, trades }) => ({
+  const tradeSeasons = seasons.map(({ league, managers, transactions }) => ({
     season: league.season,
-    trades: trades
+    trades: transactions
+      .filter((transaction) => transaction.type === "trade")
       .sort((left, right) => right.status_updated - left.status_updated)
-      .map((trade) => {
+      .map((trade): TradeRecord => {
         const playerAsset = (playerId: string): TradeAsset => ({
           kind: "player",
           playerId,
@@ -137,6 +169,7 @@ export async function getTradeHistory(startLeagueId: string): Promise<TradeSeaso
             && trade.roster_ids.includes(budget.sender) && trade.roster_ids.includes(budget.receiver));
         return {
           id: trade.transaction_id,
+          leagueId: league.league_id,
           season: league.season,
           week: trade.leg,
           timestamp: trade.status_updated,
@@ -165,4 +198,11 @@ export async function getTradeHistory(startLeagueId: string): Promise<TradeSeaso
         };
       }),
   }));
+
+  return {
+    seasons: tradeSeasons,
+    leagues: seasons.map(({ league, rosters, transactions, managers }) => ({ league, rosters, transactions, managers })),
+    drafts,
+    players,
+  };
 }
