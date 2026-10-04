@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { TradeAsset, TradeRecord, TradeSeason } from "@/lib/trade-history";
+import type { SideGrade, TradeAssessment } from "@/lib/trade-grading";
 import styles from "./trade-history.module.css";
 
 function ordinal(round: number) {
@@ -56,10 +57,31 @@ function Asset({ asset }: { asset: TradeAsset }) {
   );
 }
 
-export default function TradeHistory({ seasons }: { seasons: TradeSeason[] }) {
+function GradeCard({ grade }: { grade: SideGrade | undefined }) {
+  if (!grade || grade.status === "unrated") {
+    return <div className={styles.grading}><strong>Not rated</strong><p>{grade?.reason ?? "No valuation assessment available."}</p></div>;
+  }
+  const delta = (value: number | undefined) => value === undefined ? "Unavailable" : `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
+  return (
+    <div className={styles.grading}>
+      <div className={styles.grades}>
+        <span>At the trade <b data-grade={grade.now}>{grade.now}</b></span>
+        <span>Future base case <b data-grade={grade.future}>{grade.future}</b></span>
+      </div>
+      <p>{grade.strategy} · {grade.score?.toFixed(1)}/100</p>
+      <p>Market value: {grade.received?.toLocaleString("en-GB")} received / {grade.given?.toLocaleString("en-GB")} given up.</p>
+      <p>Value edge {delta(grade.marketDelta)} · Starter impact {delta(grade.lineupDelta)} · Depth impact {delta(grade.depthDelta)}</p>
+      <p>Conditional future range: <strong>{grade.downside} to {grade.upside}</strong>. Scenarios, not predictions.</p>
+      <details><summary>What would change the grade?</summary><ul>{grade.scenarios?.map((scenario, index) => <li key={index}>{scenario}</li>)}</ul></details>
+    </div>
+  );
+}
+
+export default function TradeHistory({ seasons, assessments }: { seasons: TradeSeason[]; assessments: Record<string, TradeAssessment> }) {
   const [season, setSeason] = useState(seasons[0]?.season ?? "");
   const [manager, setManager] = useState("all");
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("newest");
 
   const current = seasons.find((candidate) => candidate.season === season) ?? seasons[0];
   const managers = useMemo(() => [...new Map(current?.trades.flatMap((trade) => trade.sides.map((side) => [side.manager.username, side.manager.name] as const)) ?? []).entries()]
@@ -67,11 +89,19 @@ export default function TradeHistory({ seasons }: { seasons: TradeSeason[] }) {
 
   const trades = useMemo(() => {
     const search = query.trim().toLowerCase();
-    return (current?.trades ?? []).filter((trade) =>
+    const filtered = (current?.trades ?? []).filter((trade) =>
       (manager === "all" || trade.sides.some((side) => side.manager.username === manager))
       && (!search || trade.sides.some((side) => side.manager.name.toLowerCase().includes(search)
         || side.receives.some((asset) => assetText(asset).toLowerCase().includes(search)))));
-  }, [current, manager, query]);
+    if (sort === "best") {
+      const score = (trade: TradeRecord) => {
+        const rosterId = trade.sides.find((side) => side.manager.username === manager)?.manager.rosterId;
+        return assessments[trade.id]?.sides.find((side) => side.rosterId === rosterId)?.score ?? -1;
+      };
+      filtered.sort((left, right) => score(right) - score(left) || right.timestamp - left.timestamp);
+    }
+    return filtered;
+  }, [current, manager, query, sort, assessments]);
 
   const stats = useMemo(() => {
     const counts = new Map<string, number>();
@@ -91,10 +121,18 @@ export default function TradeHistory({ seasons }: { seasons: TradeSeason[] }) {
   const selectSeason = (next: string) => {
     setSeason(next);
     setManager("all");
+    setSort("newest");
   };
 
   return (
     <section>
+      <details className={styles.methodology}>
+        <summary>How team-specific trade grades work</summary>
+        <p>A = 80+, B = 65–79.9, C = 45–64.9, D = 30–44.9, F = below 30. An even trade starts at 50 (C).</p>
+        <p>At-trade grades combine received-versus-given market value, the best legal starting lineup and remaining bench strength. Market / starters / depth weights are 55 / 35 / 10 for the top third of standings, 65 / 25 / 10 for the middle third and 80 / 10 / 10 for the bottom third. Standings are a strategy proxy, not a declaration of a manager&apos;s intent.</p>
+        <p>Future grades compare package values at the midpoint of supplied low/high outcomes. The upside pairs received assets&apos; highs with outgoing assets&apos; lows; downside reverses that. These are conditional bounds, not probabilities or guarantees. Pick ranges must reflect the original team&apos;s likely draft slot, that draft class and its prospects; completed selections shown below are hindsight and never used in at-trade grades.</p>
+        <p>Only authorised snapshots from the seven days before a trade are accepted. Roster, standings, format and valuations must describe that time. Missing inputs mean Not rated. Values must share a scale; this is our transparent model, not KeepTradeCut&apos;s proprietary calculator or a claim of access to its API.</p>
+      </details>
       <nav className={styles.tabs} aria-label="Seasons">
         {seasons.map((candidate) => (
           <button key={candidate.season} type="button" aria-pressed={candidate.season === current?.season} onClick={() => selectSeason(candidate.season)}>
@@ -113,9 +151,16 @@ export default function TradeHistory({ seasons }: { seasons: TradeSeason[] }) {
       <div className={styles.filters}>
         <label>
           <span>Manager</span>
-          <select value={manager} onChange={(event) => setManager(event.target.value)}>
+          <select value={manager} onChange={(event) => { setManager(event.target.value); setSort("newest"); }}>
             <option value="all">All managers</option>
             {managers.map(([username, name]) => <option key={username} value={username}>{name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Order</span>
+          <select value={sort} onChange={(event) => setSort(event.target.value)}>
+            <option value="newest">Newest first</option>
+            <option value="best" disabled={manager === "all"}>Best grade for selected manager</option>
           </select>
         </label>
         <label className={styles.search}>
@@ -148,9 +193,19 @@ export default function TradeHistory({ seasons }: { seasons: TradeSeason[] }) {
                         ? side.receives.map((asset, assetIndex) => <Asset key={assetIndex} asset={asset} />)
                         : <li className={styles.nothing}>Nothing</li>}
                     </ul>
+                    <details className={styles.outgoing}>
+                      <summary>Gives up ({side.givesUp?.length ?? "unknown"})</summary>
+                      <ul>{side.givesUp === null
+                        ? <li className={styles.nothing}>Outgoing player ownership unavailable.</li>
+                        : side.givesUp.length
+                          ? side.givesUp.map((asset, assetIndex) => <Asset key={assetIndex} asset={asset} />)
+                          : <li className={styles.nothing}>Nothing</li>}</ul>
+                    </details>
+                    <GradeCard grade={assessments[trade.id]?.sides.find((grade) => grade.rosterId === side.manager.rosterId)} />
                   </div>
                 ))}
               </div>
+              {assessments[trade.id]?.source && <p className={styles.source}>Valuation source: {assessments[trade.id].source} · As of {assessments[trade.id].asOf} · Future horizon: {assessments[trade.id].futureHorizon}</p>}
             </article>
           );
         })}

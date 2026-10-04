@@ -3,7 +3,7 @@ import { getDisplayName, getRosterUsername, normalizeUsername } from "./normaliz
 
 const BASE_URL = "https://api.sleeper.app/v1";
 
-type SleeperLeague = { league_id: string; season: string; previous_league_id?: string | null };
+type SleeperLeague = { league_id: string; season: string; previous_league_id?: string | null; roster_positions: string[]; total_rosters: number };
 type SleeperUser = { user_id: string; username?: string; display_name?: string };
 type SleeperRoster = { roster_id: number; owner_id?: string | null };
 type SleeperPlayer = { full_name?: string; first_name?: string; last_name?: string; position?: string; team?: string };
@@ -18,6 +18,7 @@ type SleeperTrade = {
   status_updated: number;
   roster_ids: number[];
   adds?: Record<string, number> | null;
+  drops?: Record<string, number> | null;
   draft_picks?: SleeperPickMove[];
   waiver_budget?: Array<{ sender: number; receiver: number; amount: number }>;
 };
@@ -25,14 +26,16 @@ type SleeperTrade = {
 export type TradeManager = { rosterId: number; name: string; username: string };
 export type TradeAsset =
   | { kind: "player"; playerId: string; name: string; position: string; team: string }
-  | { kind: "pick"; season: string; round: number; originalOwner: string; selection: { pickLabel: string; playerName: string; position: string; pickedBy: string } | null; pending: boolean }
+  | { kind: "pick"; season: string; round: number; originalRosterId: number; originalOwner: string; selection: { pickLabel: string; playerName: string; position: string; pickedBy: string } | null; pending: boolean }
   | { kind: "faab"; amount: number };
 export type TradeRecord = {
   id: string;
   season: string;
   week: number;
   timestamp: number;
-  sides: Array<{ manager: TradeManager; receives: TradeAsset[] }>;
+  rosterSlots: string[];
+  teamCount: number;
+  sides: Array<{ manager: TradeManager; receives: TradeAsset[]; givesUp: TradeAsset[] | null }>;
 };
 export type TradeSeason = { season: string; trades: TradeRecord[] };
 
@@ -107,42 +110,59 @@ export async function getTradeHistory(startLeagueId: string): Promise<TradeSeaso
     season: league.season,
     trades: trades
       .sort((left, right) => right.status_updated - left.status_updated)
-      .map((trade) => ({
-        id: trade.transaction_id,
-        season: league.season,
-        week: trade.leg,
-        timestamp: trade.status_updated,
-        sides: trade.roster_ids.map((rosterId) => ({
-          manager: managers.get(rosterId) ?? { rosterId, name: `Team ${rosterId}`, username: `Team${rosterId}` },
-          receives: [
-            ...Object.entries(trade.adds ?? {})
-              .filter(([, receiver]) => receiver === rosterId)
-              .map(([playerId]): TradeAsset => ({
-                kind: "player",
-                playerId,
-                name: playerLabel(players[playerId], `Player ${playerId}`),
-                position: players[playerId]?.position ?? "",
-                team: players[playerId]?.team ?? "FA",
-              })),
-            ...(trade.draft_picks ?? [])
-              .filter((pick) => pick.owner_id === rosterId)
-              .sort((left, right) => Number(left.season) - Number(right.season) || left.round - right.round)
-              .map((pick): TradeAsset => {
-                const selection = selectionFor(pick.season, pick.round, pick.roster_id);
-                return {
-                  kind: "pick",
-                  season: pick.season,
-                  round: pick.round,
-                  originalOwner: managers.get(pick.roster_id)?.name ?? `Team ${pick.roster_id}`,
-                  selection,
-                  pending: !selection,
-                };
-              }),
-            ...(trade.waiver_budget ?? [])
-              .filter((budget) => budget.receiver === rosterId)
-              .map((budget): TradeAsset => ({ kind: "faab", amount: budget.amount })),
-          ],
-        })),
-      })),
+      .map((trade) => {
+        const playerAsset = (playerId: string): TradeAsset => ({
+          kind: "player",
+          playerId,
+          name: playerLabel(players[playerId], `Player ${playerId}`),
+          position: players[playerId]?.position ?? "",
+          team: players[playerId]?.team ?? "FA",
+        });
+        const pickAsset = (pick: SleeperPickMove): TradeAsset => {
+          const selection = selectionFor(pick.season, pick.round, pick.roster_id);
+          return {
+            kind: "pick", season: pick.season, round: pick.round,
+            originalRosterId: pick.roster_id,
+            originalOwner: managers.get(pick.roster_id)?.name ?? `Team ${pick.roster_id}`,
+            selection, pending: !selection,
+          };
+        };
+        const ownershipComplete = Object.entries(trade.adds ?? {}).every(([id, receiver]) => {
+          const sender = trade.drops?.[id];
+          return sender !== undefined && sender !== receiver && trade.roster_ids.includes(sender) && trade.roster_ids.includes(receiver);
+        }) && Object.keys(trade.drops ?? {}).every((id) => trade.adds?.[id] !== undefined)
+          && (trade.draft_picks ?? []).every((pick) => pick.owner_id !== pick.previous_owner_id
+            && trade.roster_ids.includes(pick.owner_id) && trade.roster_ids.includes(pick.previous_owner_id))
+          && (trade.waiver_budget ?? []).every((budget) => budget.sender !== budget.receiver
+            && trade.roster_ids.includes(budget.sender) && trade.roster_ids.includes(budget.receiver));
+        return {
+          id: trade.transaction_id,
+          season: league.season,
+          week: trade.leg,
+          timestamp: trade.status_updated,
+          rosterSlots: league.roster_positions.filter((slot) => slot !== "BN" && slot !== "IR"),
+          teamCount: league.total_rosters,
+          sides: trade.roster_ids.map((rosterId) => ({
+            manager: managers.get(rosterId) ?? { rosterId, name: `Team ${rosterId}`, username: `Team${rosterId}` },
+            givesUp: ownershipComplete ? [
+              ...Object.entries(trade.drops ?? {}).filter(([, sender]) => sender === rosterId).map(([id]) => playerAsset(id)),
+              ...(trade.draft_picks ?? []).filter((pick) => pick.previous_owner_id === rosterId).map(pickAsset),
+              ...(trade.waiver_budget ?? []).filter((budget) => budget.sender === rosterId).map((budget): TradeAsset => ({ kind: "faab", amount: budget.amount })),
+            ] : null,
+            receives: [
+              ...Object.entries(trade.adds ?? {})
+                .filter(([, receiver]) => receiver === rosterId)
+                .map(([playerId]) => playerAsset(playerId)),
+              ...(trade.draft_picks ?? [])
+                .filter((pick) => pick.owner_id === rosterId)
+                .sort((left, right) => Number(left.season) - Number(right.season) || left.round - right.round)
+                .map(pickAsset),
+              ...(trade.waiver_budget ?? [])
+                .filter((budget) => budget.receiver === rosterId)
+                .map((budget): TradeAsset => ({ kind: "faab", amount: budget.amount })),
+            ],
+          })),
+        };
+      }),
   }));
 }

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:newsletter": "tsx --test src/lib/weekly-report-analysis.test.ts"
+    "test:newsletter": "tsx --test src/lib/weekly-report-analysis.test.ts",
+    "test:trades": "tsx --test src/lib/trade-grading.test.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.3",
