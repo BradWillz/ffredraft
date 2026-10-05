@@ -6,9 +6,13 @@ import { getWeeklyReport, type ReportTeam } from "@/lib/weekly-report";
 import { getNewsletterCommentary } from "@/lib/newsletter-commentary";
 import PrintReportButton from "./PrintReportButton";
 import FaabTable from "./FaabTable";
+import EditorialNewsletter from "./EditorialNewsletter";
 import styles from "./report.module.css";
 
-type PageProps = { params: Promise<{ week: string }> };
+type PageProps = { params: Promise<{ week: string }>; searchParams: Promise<{ edition?: string }> };
+
+// Issues from this week onward use the editorial layout; earlier issues keep their original layout.
+const EDITORIAL_FROM_WEEK = 4;
 
 export const dynamic = "force-dynamic";
 
@@ -29,20 +33,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: `Week ${week} Report` };
 }
 
-export default async function WeeklyNewsletterPage({ params }: PageProps) {
+export default async function WeeklyNewsletterPage({ params, searchParams }: PageProps) {
   const week = Number((await params).week);
+  const { edition } = await searchParams;
   if (!Number.isInteger(week) || week < 1 || week > 18) notFound();
   const report = await getWeeklyReport(week);
   if (week > report.lastCompletedWeek) notFound();
   const commentary = await getNewsletterCommentary(report);
   const commentaryByRoster = new Map(commentary?.teams.map((team) => [team.rosterId, team]) ?? []);
   const headlineMargin = report.highestScorer.score - report.highestScorer.opponentScore;
+  const editorial = edition === "classic" ? false : edition === "editorial" || week >= EDITORIAL_FROM_WEEK;
 
   return (
     <main className={styles.shell}>
       <div className={styles.toolbar}>
         <Link href="/the-redraft">Back to league</Link>
-        <span>Email preview</span>
+        <span>Email preview · <Link href={`/newsletter/week/${week}?edition=${editorial ? "classic" : "editorial"}`}>{editorial ? "View classic layout" : "Preview editorial layout"}</Link></span>
         <PrintReportButton />
       </div>
       <nav className={styles.weekTabs} aria-label="Newsletter weeks">
@@ -58,6 +64,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
         ))}
       </nav>
 
+      {editorial ? <EditorialNewsletter report={report} week={week} commentary={commentary} leagueHref="/the-redraft" /> : (
       <article className={styles.report}>
         <header className={styles.masthead}>
           <div className={styles.brandRow}>
@@ -278,6 +285,7 @@ export default async function WeeklyNewsletterPage({ params }: PageProps) {
           <small>Generated from Sleeper scores, lineups and half-PPR projections, plus The Main Leagues commissioner tools. Projection totals exclude team defence where Sleeper does not publish a matching projection record.</small>
         </footer>
       </article>
+      )}
     </main>
   );
 }

@@ -1,9 +1,9 @@
 import { strict as assert } from "node:assert";
 import { mock, test } from "node:test";
-import { clearNewsletterCommentary, generateNewsletterCommentary, getNewsletterCommentary, validateNewsletterCommentary } from "./newsletter-commentary";
+import { clearNewsletterCommentary, generateNewsletterCommentary, getNewsletterCommentary, validateFraudWatchCommentary, validateNewsletterCommentary } from "./newsletter-commentary";
 import { sharedAcquireLock, sharedDelete } from "./shared-store";
 import type { WeeklyReport } from "./weekly-report";
-import { bestLegalBenchSwap, dumbestDropsOfWeek, faabBreakdown, leagueScoredPoints, maxPointsFor, pickOwnersAt, rookieDraftOrder, matchupSummary, playoffField, simulatePlayoffOdds, waiverPickupsOfWeek, whiffOfTheWeek, type WeeklyMatchup, type WeeklyTransaction } from "./weekly-report-analysis";
+import { allPlayCredit, bestLegalBenchSwap, dumbestDropsOfWeek, faabBreakdown, fraudWatchSelection, leagueScoredPoints, maxPointsFor, pickOwnersAt, rookieDraftOrder, matchupSummary, playoffField, scheduleLuck, simulatePlayoffOdds, waiverPickupsOfWeek, whiffOfTheWeek, type WeeklyMatchup, type WeeklyTransaction } from "./weekly-report-analysis";
 import { CommentaryDiagnosticError, diagnosticStep, logCommentaryDiagnostic, safeDiagnosticException } from "./newsletter-diagnostics";
 
 test("diagnostics retain exception stacks and causes but redact secrets", async () => {
@@ -191,6 +191,47 @@ test("pickup award skips absent players and missing scores, but accepts zero", (
   assert.equal(waiverPickupsOfWeek(transactions, [{ ...matchup, players_points: { receiver: 0 } }])[0].points, 0);
 });
 
+test("schedule luck counts all-play ties as half wins and compares expected wins with the actual record", () => {
+  assert.equal(allPlayCredit(100, [100, 100, 90, 120]), 1.5);
+  const week = (scores: number[]) => scores.map((points, index) => ({ roster_id: index + 1, matchup_id: Math.floor(index / 2) + 1, points }));
+  // Pairs: 1v2, 3v4. Roster 1 beats a weak opponent twice while scoring third-best.
+  const table = scheduleLuck([week([80, 70, 90, 100]), week([85, 60, 95, 110])]);
+  const byRoster = new Map(table.map((team) => [team.rosterId, team]));
+  const one = byRoster.get(1)!;
+  assert.equal(one.wins, 2);
+  assert.equal(one.allPlayWins, 2);
+  assert.equal(one.allPlayPossible, 6);
+  assert.ok(Math.abs(one.expectedWins - 2 / 3) < 1e-9);
+  assert.ok(Math.abs(one.scheduleLuck - 4 / 3) < 1e-9);
+  const three = byRoster.get(3)!;
+  assert.equal(three.wins, 0);
+  assert.ok(Math.abs(three.scheduleLuck + 4 / 3) < 1e-9);
+  const selection = fraudWatchSelection(table);
+  assert.equal(selection.primary?.rosterId, 1);
+  assert.equal(selection.mostRobbed?.rosterId, 3);
+  assert.deepEqual(selection.alsoUnderInvestigation, []);
+});
+
+test("fraud watch breaks luck ties by lower points, then all-play wins, then roster, and clears small luck", () => {
+  const base = { wins: 2, losses: 1, ties: 0, allPlayLosses: 0, allPlayPossible: 33, expectedWins: 1, expectedLosses: 2, completedWeeks: 3 };
+  const teams = [
+    { ...base, rosterId: 4, scheduleLuck: 0.5, pointsFor: 300, allPlayWins: 10 },
+    { ...base, rosterId: 3, scheduleLuck: 0.5, pointsFor: 290, allPlayWins: 12 },
+    { ...base, rosterId: 2, scheduleLuck: 0.5, pointsFor: 290, allPlayWins: 11 },
+    { ...base, rosterId: 1, scheduleLuck: 0.5, pointsFor: 290, allPlayWins: 11 },
+    { ...base, rosterId: 5, scheduleLuck: -0.4, pointsFor: 280, allPlayWins: 9 },
+    { ...base, rosterId: 6, scheduleLuck: -0.4, pointsFor: 320, allPlayWins: 9 },
+  ];
+  const selection = fraudWatchSelection(teams);
+  assert.equal(selection.primary?.rosterId, 1);
+  assert.deepEqual(selection.alsoUnderInvestigation.map((team) => team.rosterId), [2, 3]);
+  assert.equal(selection.mostRobbed?.rosterId, 6);
+  const quiet = fraudWatchSelection([{ ...teams[0], scheduleLuck: 0.1 }, { ...teams[4], scheduleLuck: -0.1 }]);
+  assert.equal(quiet.primary, null);
+  assert.deepEqual(quiet.alsoUnderInvestigation, []);
+  assert.equal(quiet.mostRobbed?.rosterId, 5);
+});
+
 test("playoff field takes five by record and the sixth by points among the rest", () => {
   const teams = Array.from({ length: 8 }, (_, index) => ({ rosterId: index + 1, wins: 8 - index, ties: 0, points: 1000 }));
   teams[7].points = 2000;
@@ -367,6 +408,96 @@ test("AI generation reuses saved copy, invalidates changed facts, and recovers a
       else process.env[key] = value;
     }
   }
+});
+
+test("Fraud Watch prose is generated in the same request, validated separately and never discards Power Rankings copy", async () => {
+  const environmentKeys = ["OPENAI_API_KEY", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_URL", "KV_REST_API_TOKEN"];
+  const originalEnvironment = environmentKeys.map((key) => [key, process.env[key]] as const);
+  for (const key of environmentKeys) delete process.env[key];
+  process.env.OPENAI_API_KEY = "test-key-not-a-real-secret";
+  const entry = (rosterId: number, name: string, scheduleLuckValue: number) => ({
+    rosterId, name, username: name, wins: 2, losses: 1, ties: 0, allPlayWins: 14, allPlayLosses: 19, allPlayPossible: 33,
+    expectedWins: 14 / 11, expectedLosses: 3 - 14 / 11, scheduleLuck: scheduleLuckValue, pointsFor: 300, completedWeeks: 3,
+    pointsForRank: 7, standingsPosition: 4, powerRank: 6,
+  });
+  const report = {
+    season: "2026",
+    week: 3,
+    commentaryNamespace: "fraud-test",
+    powerRankings: [{ rosterId: 1, name: "Manager", opponentName: "Rival", score: 100, opponentScore: 109, nextOpponentName: "Next rival", blurb: summary().blurb, starters: [], benchPlayers: [], commentaryFacts: summary().commentaryFacts, lineupEfficiency: 82.5, benchPoints: 50, bestBenchedPlayer: "Bench RB", bestBenchedPoints: 30, weakestStarter: "Starting QB", weakestStarterPoints: 2, powerIndex: 70, rankMovement: 1, allPlayWins: 5, seasonWins: 2, seasonLosses: 1, seasonPoints: 300 }],
+    fraudWatch: { completedWeeks: 3, teamCount: 12, threshold: 0.1, primary: entry(1, "Brad", 14 / 11 * -1 + 2), alsoUnderInvestigation: [entry(2, "Griff", 0.64)], mostRobbed: entry(3, "Powell", -0.73) },
+  } as unknown as WeeklyReport;
+  const teams = [{ rosterId: 1, blurb: "Manager lost 100 to 109.", advice: "Next: Next rival. Fix that receiver slot." }];
+  const fraudWatch = { primaryRosterId: 1, headline: "The record is lying", commentary: "The 2–1 record flatters a side with 14 all-play wins.", mostRobbedRosterId: 3, mostRobbedCommentary: "Powell deserved better from the fixture list." };
+  let outputText = JSON.stringify({ teams, fraudWatch });
+  let requestBody = "";
+  const info = mock.method(console, "info", () => {});
+  const errors = mock.method(console, "error", () => {});
+  const fetchMock = mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    requestBody = await new Request(input, init).text();
+    return new Response(JSON.stringify({
+      id: "test-response", object: "response", status: "completed", text: { format: { type: "json_schema" } },
+      output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: outputText, annotations: [] }] }],
+    }), { headers: { "Content-Type": "application/json" } });
+  });
+  try {
+    const first = await generateNewsletterCommentary(report);
+    assert.deepEqual(first.teams, teams);
+    assert.deepEqual(first.fraudWatch, fraudWatch);
+    assert.equal(first.fraudWatchError, undefined);
+    const request = JSON.parse(requestBody);
+    const facts = JSON.parse(request.input);
+    assert.equal(facts.teams.length, 1);
+    assert.equal(facts.fraudWatch.primary.rosterId, 1);
+    assert.equal(facts.fraudWatch.primary.expectedWins, 1.27);
+    assert.equal(facts.fraudWatch.primary.scheduleLuck, 0.73);
+    assert.deepEqual(facts.fraudWatch.primary.allPlay, { wins: 14, losses: 19, possible: 33 });
+    assert.equal(facts.fraudWatch.mostRobbed.rosterId, 3);
+    assert.deepEqual(request.text.format.schema.required, ["teams", "fraudWatch"]);
+    assert.match(request.instructions, /FRAUD WATCH/);
+    assert.match(request.instructions, /exactly 3–4 sentences and no more than 90 words total/);
+    assert.equal(fetchMock.mock.callCount(), 1);
+    assert.deepEqual(await generateNewsletterCommentary(report), first);
+    assert.equal(fetchMock.mock.callCount(), 1);
+
+    await clearNewsletterCommentary(report);
+    outputText = JSON.stringify({ teams, fraudWatch: { ...fraudWatch, primaryRosterId: 2 } });
+    const partial = await generateNewsletterCommentary(report);
+    assert.deepEqual(partial.teams, teams);
+    assert.equal(partial.fraudWatch, undefined);
+    assert.match(partial.fraudWatchError ?? "", /primaryRosterId 2 does not match the supplied subject 1/);
+    assert.deepEqual((await getNewsletterCommentary(report))?.teams, teams);
+
+    outputText = JSON.stringify({ teams, fraudWatch });
+    const retried = await generateNewsletterCommentary(report);
+    assert.equal(fetchMock.mock.callCount(), 3);
+    assert.deepEqual(retried.fraudWatch, fraudWatch);
+
+    await clearNewsletterCommentary(report);
+    const dynasty = await generateNewsletterCommentary(report, undefined, { fraudWatch: false });
+    assert.equal(JSON.parse(JSON.parse(requestBody).input).fraudWatch, undefined);
+    assert.equal(dynasty.fraudWatch, undefined);
+    await clearNewsletterCommentary(report);
+  } finally {
+    fetchMock.mock.restore();
+    info.mock.restore();
+    errors.mock.restore();
+    for (const [key, value] of originalEnvironment) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("Fraud Watch validation checks subjects, length, kickers and URLs", () => {
+  const fraudWatch = { completedWeeks: 3, teamCount: 12, threshold: 0.1, primary: { rosterId: 1 }, alsoUnderInvestigation: [], mostRobbed: null } as unknown as Parameters<typeof validateFraudWatchCommentary>[1];
+  const valid = { primaryRosterId: 1, headline: "The record is lying", commentary: "Flattering.", mostRobbedRosterId: null, mostRobbedCommentary: "" };
+  assert.deepEqual(validateFraudWatchCommentary(valid, fraudWatch), valid);
+  assert.throws(() => validateFraudWatchCommentary({ ...valid, mostRobbedRosterId: 4 }, fraudWatch), /mostRobbedRosterId/);
+  assert.throws(() => validateFraudWatchCommentary({ ...valid, commentary: "word ".repeat(101) }, fraudWatch), /more than 100/);
+  assert.throws(() => validateFraudWatchCommentary({ ...valid, commentary: "Even the kicker knew." }, fraudWatch), /kickers/);
+  assert.throws(() => validateFraudWatchCommentary({ ...valid, commentary: "See https://example.com" }, fraudWatch), /URLs/);
+  assert.throws(() => validateFraudWatchCommentary({ ...valid, headline: " " }, fraudWatch), /headline must not be empty/);
 });
 
 test("generation locks reject duplicate work and can be released", async () => {

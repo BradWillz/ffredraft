@@ -16,9 +16,13 @@ import {
 } from "./sleeper";
 import { getWheelState } from "./wheel-state";
 import {
+  allPlayCredit,
   dumbestDropsOfWeek,
   faabBreakdown,
+  FRAUD_WATCH_THRESHOLD,
+  fraudWatchSelection,
   leagueScoredPoints,
+  scheduleLuck,
   matchupSummary,
   maxPointsFor,
   pickOwnersAt,
@@ -27,6 +31,7 @@ import {
   waiverPickupsOfWeek,
   whiffOfTheWeek,
   type DraftPickTrade,
+  type ScheduleLuckTeam,
   type WeeklyPlayer,
   type WeeklyTransaction,
 } from "./weekly-report-analysis";
@@ -162,6 +167,24 @@ export type WeeklyReport = {
       owners: Array<{ round: number; rosterId: number; name: string; username: string; traded: boolean }>;
     }>;
   } | null;
+  fraudWatch: FraudWatch;
+};
+
+export type FraudWatchEntry = ScheduleLuckTeam & {
+  name: string;
+  username: string;
+  pointsForRank: number;
+  standingsPosition: number;
+  powerRank: number;
+};
+
+export type FraudWatch = {
+  completedWeeks: number;
+  teamCount: number;
+  threshold: number;
+  primary: FraudWatchEntry | null;
+  alsoUnderInvestigation: FraudWatchEntry[];
+  mostRobbed: FraudWatchEntry | null;
 };
 
 const PLAYOFF_SIMULATIONS = 10000;
@@ -216,7 +239,7 @@ function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
       team.margin += score - (opponent?.points ?? score);
       team.scored += score;
       team.available += availablePoints;
-      team.allPlayWins += scores.filter((candidate) => candidate < score).length;
+      team.allPlayWins += allPlayCredit(score, scores);
       team.allPlayGames += Math.max(0, matchups.length - 1);
       if (opponent) {
         team.games += 1;
@@ -383,7 +406,7 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
       margin: score - opponentScore,
       benchPoints,
       lineupEfficiency: availablePoints > 0 ? Math.min(100, score / availablePoints * 100) : 0,
-      allPlayWins: scores.filter((candidate) => candidate < score).length,
+      allPlayWins: allPlayCredit(score, scores),
       projectedPoints: (matchup.starters ?? []).reduce((total, id) => total + (projections[id]?.[projectionKey] ?? 0), 0),
       bestBenchedPlayer: bestBenchedPlayer ? playerName(bestBenchedPlayer.id, players) : "the unused bench",
       bestBenchedPoints: bestBenchedPlayer?.points ?? 0,
@@ -571,6 +594,28 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
   }
   const faabTeams = new Map(faabBreakdown([...earlierTransactions, transactions].map((weekTransactions) => weekTransactions ?? []), weeklyMatchups)
     .map((team) => [team.rosterId, team]));
+  const standings = [...teams].sort((left, right) => right.seasonWins - left.seasonWins || right.seasonPoints - left.seasonPoints);
+  const powerRankings = [...teams].sort((left, right) => right.powerIndex - left.powerIndex);
+  // weeklyMatchups only covers Weeks 1..week, so archived issues never see later results.
+  const luckTable = scheduleLuck(weeklyMatchups);
+  const pointsForOrder = [...luckTable].sort((left, right) => right.pointsFor - left.pointsFor).map((team) => team.rosterId);
+  const fraudEntries = luckTable.map((team) => {
+    const identity = rosterNames.get(team.rosterId) ?? { name: `Team ${team.rosterId}`, username: `Team${team.rosterId}` };
+    return {
+      ...team,
+      name: identity.name,
+      username: identity.username,
+      pointsForRank: pointsForOrder.indexOf(team.rosterId) + 1,
+      standingsPosition: standings.findIndex((candidate) => candidate.rosterId === team.rosterId) + 1,
+      powerRank: powerRankings.findIndex((candidate) => candidate.rosterId === team.rosterId) + 1,
+    } satisfies FraudWatchEntry;
+  });
+  const fraudWatch: FraudWatch = {
+    completedWeeks: Math.max(0, ...luckTable.map((team) => team.completedWeeks)),
+    teamCount: luckTable.length,
+    threshold: FRAUD_WATCH_THRESHOLD,
+    ...fraudWatchSelection(fraudEntries),
+  };
 
   return {
     leagueName: league.name ?? "Left, Down, Wide to the Right, Up",
@@ -580,8 +625,8 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
     lastCompletedWeek: Number(league.settings?.last_scored_leg ?? 0),
     generatedAt: new Date().toISOString(),
     matchups: reportMatchups,
-    standings: [...teams].sort((left, right) => right.seasonWins - left.seasonWins || right.seasonPoints - left.seasonPoints),
-    powerRankings: [...teams].sort((left, right) => right.powerIndex - left.powerIndex),
+    standings,
+    powerRankings,
     topPlayers,
     highestScorer: sortedByScore[0],
     lowestScorer: sortedByScore.at(-1)!,
@@ -656,5 +701,6 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
       }).sort((left, right) => right.playoff - left.playoff || right.points - left.points),
     },
     rookieDraft,
+    fraudWatch,
   };
 }

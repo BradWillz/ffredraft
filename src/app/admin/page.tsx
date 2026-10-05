@@ -27,14 +27,22 @@ function CommentaryPanel({ league }: { league: NewsletterLeague }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ week, league }),
       });
-      const result = await response.json() as { error?: string; stage?: string; reason?: string; requestId?: string };
-      setStatus(response.ok
-        ? `${label} Week ${week}: ${clear ? "factual copy restored" : "AI copy saved"}.`
-        : [
+      const result = await response.json() as {
+        error?: string; stage?: string; reason?: string; requestId?: string;
+        fraudWatch?: { ok: boolean; error?: string; retainedPrevious?: boolean };
+      };
+      const fraudWatchFailed = response.ok && !clear && result.fraudWatch && !result.fraudWatch.ok;
+      setStatus(!response.ok
+        ? [
           result.error ?? "Could not update the newsletter.",
           result.reason ? `${result.stage ? `[${result.stage}] ` : ""}${result.reason}` : "",
           result.requestId ? `Request: ${result.requestId}` : "",
-        ].filter(Boolean).join(" "));
+        ].filter(Boolean).join(" ")
+        : clear
+          ? `${label} Week ${week}: factual copy restored.`
+          : fraudWatchFailed
+            ? `${label} Week ${week}: Power Rankings updated, but Fraud Watch failed (${result.fraudWatch?.error ?? "unknown error"}). ${result.fraudWatch?.retainedPrevious ? "The previous Fraud Watch copy was kept." : "The newsletter shows the factual Fraud Watch fallback."} Run again to retry.`
+            : `${label} Week ${week} commentary updated: ${result.fraudWatch ? "Power Rankings + Fraud Watch" : "Power Rankings"}.`);
     } catch {
       setStatus("Could not reach the server. Please try again.");
     } finally {
@@ -44,7 +52,7 @@ function CommentaryPanel({ league }: { league: NewsletterLeague }) {
 
   return (
     <form id={`newsletter-panel-${league}`} role="tabpanel" onSubmit={(event) => { event.preventDefault(); void update(); }} className="grid gap-4">
-      <p className="text-sm text-white/70">Writes the power-ranking blurbs for the <strong className="text-white">{label}</strong> newsletter only. Saved copy is kept separate from the other league.</p>
+      <p className="text-sm text-white/70">Writes the weekly commentary for the <strong className="text-white">{label}</strong> newsletter only{league === "redraft" ? " — Power Rankings and Fraud Watch together, in one request" : " — the Power Rankings blurbs"}. Saved copy is kept separate from the other league.</p>
       <label className="grid max-w-xs gap-2 text-sm font-bold text-white">
         Week
         <select value={week} disabled={busy} onChange={(event) => { setWeek(Number(event.target.value)); setStatus(""); }} className="wheel-admin-field">
@@ -52,7 +60,7 @@ function CommentaryPanel({ league }: { league: NewsletterLeague }) {
         </select>
       </label>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={busy} className="tool-command px-5 py-3 disabled:opacity-50">{busy ? "Working..." : `Generate ${label} AI copy`}</button>
+        <button type="submit" disabled={busy} className="tool-command px-5 py-3 disabled:opacity-50">{busy ? "Working..." : `Generate ${label} weekly commentary`}</button>
         <button type="button" disabled={busy} onClick={() => void update(true)} className="tool-command px-5 py-3 disabled:opacity-50">Use factual copy</button>
         <Link href={`${path}/${week}`} className="text-sm text-lime-300 underline">Open {label} newsletter</Link>
       </div>

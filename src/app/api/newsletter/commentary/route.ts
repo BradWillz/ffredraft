@@ -66,10 +66,20 @@ async function updateCommentary(request: Request, clear: boolean) {
       }
       if (clear) {
         await clearNewsletterCommentary(report, diagnostics);
-      } else {
-        await generateNewsletterCommentary(report, diagnostics);
+        return respond({ week, league, url: newsletterUrl }, 200);
       }
-      return respond({ week, league, url: newsletterUrl }, 200);
+      const commentary = await generateNewsletterCommentary(report, diagnostics, { fraudWatch: league === "redraft" });
+      return respond({
+        week,
+        league,
+        url: newsletterUrl,
+        powerRankings: { ok: true, teams: commentary.teams.length },
+        ...(league === "redraft" ? {
+          fraudWatch: commentary.fraudWatchError
+            ? { ok: false, error: commentary.fraudWatchError, retainedPrevious: Boolean(commentary.fraudWatch) }
+            : { ok: Boolean(commentary.fraudWatch) },
+        } : {}),
+      }, 200);
     } catch (error) {
       const failure = commentaryFailure(error, clear ? "clear" : "generation", clear ? "Unexpected error clearing commentary" : "Unexpected commentary generation error");
       logCommentaryDiagnostic(diagnostics, failure.stage, "failed", { reason: failure.reason }, error);

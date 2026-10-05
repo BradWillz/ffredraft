@@ -347,3 +347,98 @@ export function simulatePlayoffOdds(
     byPoints: tally.byPoints / simulations * 100,
   }]));
 }
+export function allPlayCredit(score: number, weekScores: number[]) {
+  // weekScores includes this team's own score once; exact ties are worth half an all-play win.
+  let credit = 0;
+  let selfSkipped = false;
+  for (const other of weekScores) {
+    if (other === score && !selfSkipped) { selfSkipped = true; continue; }
+    if (score > other) credit += 1;
+    else if (score === other) credit += 0.5;
+  }
+  return credit;
+}
+
+export type ScheduleLuckTeam = {
+  rosterId: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  allPlayWins: number;
+  allPlayLosses: number;
+  allPlayPossible: number;
+  expectedWins: number;
+  expectedLosses: number;
+  scheduleLuck: number;
+  pointsFor: number;
+  completedWeeks: number;
+};
+
+export function scheduleLuck(weeklyMatchups: WeeklyMatchup[][]): ScheduleLuckTeam[] {
+  const teams = new Map<number, ScheduleLuckTeam>();
+  for (const week of weeklyMatchups) {
+    if (week.length < 2) continue;
+    const scores = week.map((matchup) => matchup.points ?? 0);
+    const rivals = week.length - 1;
+    for (const matchup of week) {
+      const team = teams.get(matchup.roster_id) ?? {
+        rosterId: matchup.roster_id, wins: 0, losses: 0, ties: 0, allPlayWins: 0, allPlayLosses: 0, allPlayPossible: 0,
+        expectedWins: 0, expectedLosses: 0, scheduleLuck: 0, pointsFor: 0, completedWeeks: 0,
+      };
+      const credit = allPlayCredit(matchup.points ?? 0, scores);
+      team.allPlayWins += credit;
+      team.allPlayLosses += rivals - credit;
+      team.allPlayPossible += rivals;
+      team.expectedWins += credit / rivals;
+      team.pointsFor += matchup.points ?? 0;
+      team.completedWeeks += 1;
+      teams.set(matchup.roster_id, team);
+    }
+    const pairs = new Map<number, WeeklyMatchup[]>();
+    for (const matchup of week) {
+      if (matchup.matchup_id == null) continue;
+      pairs.set(matchup.matchup_id, [...(pairs.get(matchup.matchup_id) ?? []), matchup]);
+    }
+    for (const pair of pairs.values()) {
+      if (pair.length !== 2) continue;
+      const [first, second] = pair.map((matchup) => teams.get(matchup.roster_id)!);
+      const firstScore = pair[0].points ?? 0;
+      const secondScore = pair[1].points ?? 0;
+      if (firstScore > secondScore) { first.wins += 1; second.losses += 1; }
+      else if (secondScore > firstScore) { second.wins += 1; first.losses += 1; }
+      else { first.ties += 1; second.ties += 1; }
+    }
+  }
+  return [...teams.values()].map((team) => {
+    const actualWins = team.wins + team.ties / 2;
+    return {
+      ...team,
+      expectedLosses: team.completedWeeks - team.expectedWins,
+      scheduleLuck: actualWins - team.expectedWins,
+    };
+  });
+}
+
+export const FRAUD_WATCH_THRESHOLD = 0.1;
+const LUCK_EPSILON = 1e-9;
+
+export function fraudWatchSelection<T extends ScheduleLuckTeam>(teams: T[], threshold = FRAUD_WATCH_THRESHOLD) {
+  const suspects = teams
+    .filter((team) => team.scheduleLuck > LUCK_EPSILON)
+    .sort((left, right) => (Math.abs(right.scheduleLuck - left.scheduleLuck) > LUCK_EPSILON ? right.scheduleLuck - left.scheduleLuck : 0)
+      || left.pointsFor - right.pointsFor
+      || left.allPlayWins - right.allPlayWins
+      || left.rosterId - right.rosterId);
+  const robbed = teams
+    .filter((team) => team.scheduleLuck < -LUCK_EPSILON)
+    .sort((left, right) => (Math.abs(right.scheduleLuck - left.scheduleLuck) > LUCK_EPSILON ? left.scheduleLuck - right.scheduleLuck : 0)
+      || right.pointsFor - left.pointsFor
+      || right.allPlayWins - left.allPlayWins
+      || left.rosterId - right.rosterId);
+  const primary = suspects[0] && suspects[0].scheduleLuck > threshold + LUCK_EPSILON ? suspects[0] : null;
+  return {
+    primary,
+    alsoUnderInvestigation: primary ? suspects.slice(1, 3) : [],
+    mostRobbed: robbed[0] ?? null,
+  };
+}
