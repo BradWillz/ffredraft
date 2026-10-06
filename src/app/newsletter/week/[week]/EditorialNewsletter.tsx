@@ -10,7 +10,7 @@ import styles from "./editorial.module.css";
 
 const serif = Source_Serif_4({ subsets: ["latin"], weight: ["400", "600", "700"], style: ["normal", "italic"], variable: "--font-serif" });
 
-type Props = { report: WeeklyReport; week: number; commentary: NewsletterCommentary | null; leagueHref: string };
+type Props = { report: WeeklyReport; week: number; commentary: NewsletterCommentary | null; leagueHref: string; league?: "redraft" | "dynasty" };
 
 function score(value: number) {
   return value.toFixed(2);
@@ -108,12 +108,14 @@ function powerHeadline(team: ReportTeam, index: number, total: number) {
   return team.won ? "Job done" : "Still searching";
 }
 
-export default function EditorialNewsletter({ report, week, commentary, leagueHref }: Props) {
+export default function EditorialNewsletter({ report, week, commentary, leagueHref, league = "redraft" }: Props) {
+  const isDynasty = league === "dynasty";
   const commentaryByRoster = new Map(commentary?.teams.map((team) => [team.rosterId, team]) ?? []);
   const { headline, standfirst } = frontPage(report, week);
   const headlineMargin = report.highestScorer.score - report.highestScorer.opponentScore;
   const lineupCall = [...report.powerRankings].sort((a, b) => b.lineupEfficiency - a.lineupEfficiency)[0];
   const totalTeams = report.powerRankings.length;
+  const rookieDraft = report.rookieDraft;
   const fraud = report.fraudWatch;
   const fraudCopy = fraudWatchCopy(fraud, commentary?.fraudWatch);
 
@@ -179,7 +181,7 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
       ],
       tone: styles.toneGold,
     }] : []),
-    {
+    ...(!isDynasty ? [{
       key: "power",
       kicker: "The Power",
       title: report.powerHolder ? `${report.powerHolder.holderName} holds The Power` : "Awaiting result",
@@ -199,7 +201,7 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
       title: report.ladbrokes.winners.length ? `${joinNames(report.ladbrokes.winners.map((winner) => winner.displayName))} read the card` : "No entries",
       lines: [report.ladbrokes.winners.length ? `${report.ladbrokes.winners[0].correct}/${report.ladbrokes.total} correct · joint winners of the weekly prediction card.` : "No locked entries were recorded."],
       tone: styles.toneOrange,
-    },
+    }] : []),
   ];
 
   const leagueSpent = report.faab.teams.reduce((total, team) => total + team.spent, 0);
@@ -213,10 +215,10 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
       {/* FRONT PAGE */}
       <header className={styles.frontPage}>
         <div className={styles.nameplate}>
-          <div className={styles.mark}>TML</div>
+          <div className={styles.mark}>{isDynasty ? "DOD" : "TML"}</div>
           <div className={styles.titleBlock}>
-            <strong>The Main Leagues</strong>
-            <span>Fantasy Football League Office</span>
+            <strong>{isDynasty ? "Dynastry of Darkness" : "The Main Leagues"}</strong>
+            <span>{isDynasty ? "Wrestling Dynasty League Office" : "Fantasy Football League Office"}</span>
           </div>
           <div className={styles.dateline}>
             <span>Issue {String(week).padStart(2, "0")}</span>
@@ -257,9 +259,10 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
           <span>Inside</span>
           <a href="#week-that-was">The Week That Was</a>
           <a href="#power-list">The Power List</a>
-          <a href="#around-the-league">Around the League</a>
+          {!isDynasty && <a href="#around-the-league">Around the League</a>}
           <a href="#state-of-play">The State of Play</a>
-          <a href="#market">The Market</a>
+          {!isDynasty && <a href="#market">The Market</a>}
+          {rookieDraft && <a href="#rookie-draft">Rookie Draft Order</a>}
         </nav>
       </header>
 
@@ -356,7 +359,7 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
       </section>
 
       {/* AROUND THE LEAGUE */}
-      <section id="around-the-league" className={styles.chapter}>
+      {!isDynasty && <section id="around-the-league" className={styles.chapter}>
         <header className={styles.chapterHead}>
           <h2>Around the League</h2>
           <p>Survival, side quests and the stories from the group chat.</p>
@@ -398,7 +401,7 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
             </article>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* THE STATE OF PLAY */}
       <section id="state-of-play" className={`${styles.chapter} ${styles.chapterBreak}`}>
@@ -501,7 +504,7 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
       </section>
 
       {/* THE MARKET */}
-      <section id="market" className={`${styles.chapter} ${styles.chapterBreak}`}>
+      {!isDynasty && <section id="market" className={`${styles.chapter} ${styles.chapterBreak}`}>
         <header className={styles.chapterHead}>
           <h2>The Market</h2>
           <p>${leagueSpent} spent. Who&apos;s actually getting a return?</p>
@@ -528,12 +531,63 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
             <li><strong>Best value buy</strong> is the single paid claim with the highest started points ÷ bid. <strong>Biggest splash</strong> is the largest single bid.</li>
           </ol>
         </div>
-      </section>
+      </section>}
+
+      {rookieDraft && (
+        <section id="rookie-draft" className={`${styles.chapter} ${styles.chapterBreak}`}>
+          <header className={styles.chapterHead}>
+            <p className={styles.kicker}>Future of the dynasty</p>
+            <h2>{rookieDraft.season} rookie draft order</h2>
+            <p>Projected after Week {week}, with pick ownership after every trade.</p>
+          </header>
+          <p className={styles.note}>Each cell shows who is on the clock with that pick.</p>
+          <p className={legacy.draftSwipe} aria-hidden="true">Swipe for all 12 picks →</p>
+          <div className={legacy.draftScroll}>
+            <div className={legacy.draftGrid} role="table" aria-label={`${rookieDraft.season} rookie draft order`}>
+              <div role="row" className={legacy.draftGridRow}>
+                <span role="columnheader" className={legacy.draftCorner}>Pick</span>
+                {rookieDraft.picks.map((slot) => (
+                  <div role="columnheader" key={slot.rosterId} className={`${legacy.draftSlotHead} ${slot.pick === 7 ? legacy.draftPlayoffStart : ""}`}>
+                    <b>{slot.pick}</b>
+                    <strong>{slot.name}</strong>
+                    <small>{slot.seed == null ? `MPF ${Math.round(slot.maxPoints)}` : `Seed ${slot.seed}`}</small>
+                  </div>
+                ))}
+              </div>
+              {Array.from({ length: rookieDraft.rounds }, (_, roundIndex) => (
+                <div role="row" key={roundIndex} className={legacy.draftGridRow}>
+                  <span role="rowheader" className={legacy.draftRound}>R{roundIndex + 1}</span>
+                  {rookieDraft.picks.map((slot) => {
+                    const owner = slot.owners[roundIndex];
+                    return (
+                      <div role="cell" key={slot.rosterId} className={`${owner.traded ? legacy.draftTraded : legacy.draftOwn} ${slot.pick === 7 ? legacy.draftPlayoffStart : ""}`} title={owner.traded ? `${owner.name} via ${slot.name}` : owner.name}>
+                        <small>{owner.round}.{String(slot.pick).padStart(2, "0")}</small>
+                        {avatar(owner.username, 28, legacy.avatar)}
+                        <strong>{owner.name}</strong>
+                        {owner.traded && <em>via {slot.name}</em>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className={styles.mathBox}>
+            <h4>How the order works</h4>
+            <ol>
+              <li><strong>Picks 1–6</strong> go to the six teams currently outside the playoff places, ordered by <strong>Max PF (MPF)</strong>: the lowest possible-points total picks first. Max PF is the best lineup each team could have started every week.</li>
+              <li><strong>Picks 7–12</strong> go to the playoff teams. Final order is decided by the playoffs: the champion picks 12th, runner-up 11th, third 10th, and so on. Until then they&apos;re shown by projected seed, with the 6th seed at 7 and the top seed at 12.</li>
+              <li>Playoff places use the league format: top 5 records, then the highest points-for among the rest.</li>
+              <li><strong>Gold cells</strong> are traded picks; the avatar shows the manager who now owns it, and the lime line marks where the playoff teams start.</li>
+            </ol>
+          </div>
+        </section>
+      )}
 
       <footer className={legacy.footer}>
         <div><strong>Next issue</strong><span>After Sleeper finalizes Week {week + 1}</span></div>
         <Link href={leagueHref}>Open the league office</Link>
-        <small>Generated from Sleeper scores, lineups and half-PPR projections, plus The Main Leagues commissioner tools. Projection totals exclude team defence where Sleeper does not publish a matching projection record.</small>
+        <small>{isDynasty ? "Generated from Sleeper scores, lineups and projections." : "Generated from Sleeper scores, lineups and half-PPR projections, plus The Main Leagues commissioner tools."} Projection totals exclude team defence where Sleeper does not publish a matching projection record.</small>
       </footer>
     </article>
   );

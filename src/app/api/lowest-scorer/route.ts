@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/admin-auth";
 import { SLEEPER_LEAGUE_ID } from "@/lib/config";
 import { getLeagueMatchups, getLeagueRosters, getLeagueUsers, getNFLState } from "@/lib/sleeper";
 import { getDisplayName } from "@/lib/normalize-username";
-import { getLowestScorerState, resetLowestScorerState, setLowestScorerState, type LowestScorerState } from "@/lib/lowest-scorer-state";
 
 export const dynamic = "force-dynamic";
 
@@ -12,22 +10,14 @@ type SleeperRoster = { roster_id: number; owner_id: string | null };
 type SleeperUser = { user_id: string; username?: string; display_name?: string };
 type NFLState = { leg?: number; week?: number; season_type?: string };
 
-export type DanceCandidate = {
+type DanceCandidate = {
   rosterId: number;
   name: string;
   opponentName: string;
   score: number;
 };
 
-async function getCandidates(week: number): Promise<DanceCandidate[]> {
-  const [matchupsResult, rostersResult, usersResult] = await Promise.all([
-    getLeagueMatchups(SLEEPER_LEAGUE_ID, week),
-    getLeagueRosters(SLEEPER_LEAGUE_ID),
-    getLeagueUsers(SLEEPER_LEAGUE_ID),
-  ]);
-  const matchups = matchupsResult as SleeperMatchup[];
-  const rosters = rostersResult as SleeperRoster[];
-  const users = usersResult as SleeperUser[];
+function getCandidates(matchups: SleeperMatchup[], rosters: SleeperRoster[], users: SleeperUser[]): DanceCandidate[] {
   const rosterById = new Map(rosters.map((roster) => [roster.roster_id, roster]));
   const userById = new Map(users.map((user) => [user.user_id, user]));
   const nameForRoster = (rosterId: number) => {
@@ -44,7 +34,7 @@ async function getCandidates(week: number): Promise<DanceCandidate[]> {
   });
 
   return matchups
-    .filter((matchup) => typeof matchup.points === "number")
+    .filter((matchup): matchup is SleeperMatchup & { points: number } => typeof matchup.points === "number")
     .map((matchup) => {
       const opponent = matchup.matchup_id === null
         ? undefined
@@ -52,41 +42,35 @@ async function getCandidates(week: number): Promise<DanceCandidate[]> {
       return {
         rosterId: matchup.roster_id,
         name: nameForRoster(matchup.roster_id),
-        opponentName: opponent ? nameForRoster(opponent.roster_id) : "Bye week",
-        score: matchup.points ?? 0,
+        opponentName: opponent ? nameForRoster(opponent.roster_id) : "No opponent this week",
+        score: matchup.points,
       };
     })
     .sort((left, right) => left.score - right.score);
 }
 
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const week = Number(url.searchParams.get("week"));
-  const state = await getLowestScorerState();
-  if (!Number.isInteger(week) || week < 1 || week > 18) return NextResponse.json({ state });
-  try {
-    const nflState = await getNFLState() as NFLState;
-    const currentLeg = nflState.leg ?? nflState.week ?? 0;
-    const weekFinalized = nflState.season_type === "off" || currentLeg > week;
-    if (!weekFinalized) {
-      return NextResponse.json({ state, candidates: [], weekFinalized, candidatesError: `Week ${week} is still live or awaiting final score corrections.` });
-    }
-    return NextResponse.json({ state, candidates: await getCandidates(week), weekFinalized });
-  } catch {
-    return NextResponse.json({ state, candidates: [], weekFinalized: false, candidatesError: "Week status is not available yet. Try again after Sleeper finalizes scoring." });
-  }
-}
+export async function GET() {
+  const nflState = await getNFLState() as NFLState;
+  const currentLeg = nflState.leg ?? nflState.week ?? 0;
+  const lastFinalizedWeek = Math.min(18, nflState.season_type === "off" ? 18 : currentLeg - 1);
+  if (lastFinalizedWeek < 1) return NextResponse.json({ assignments: [] });
 
-export async function PUT(request: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const state = await request.json() as LowestScorerState;
-  if (!Array.isArray(state.forfeits)) return NextResponse.json({ error: "Invalid lowest-scorer state" }, { status: 400 });
-  await setLowestScorerState(state);
-  return NextResponse.json(state);
-}
+  const [rostersResult, usersResult, ...matchupsByWeek] = await Promise.all([
+    getLeagueRosters(SLEEPER_LEAGUE_ID),
+    getLeagueUsers(SLEEPER_LEAGUE_ID),
+    ...Array.from({ length: lastFinalizedWeek }, (_, index) => getLeagueMatchups(SLEEPER_LEAGUE_ID, index + 1)),
+  ]);
+  const rosters = rostersResult as SleeperRoster[];
+  const users = usersResult as SleeperUser[];
+  const assignments = matchupsByWeek.flatMap((matchupsResult, index) => {
+    const lowestScorer = getCandidates(matchupsResult as SleeperMatchup[], rosters, users)[0];
+    return lowestScorer ? [{
+      week: index + 1,
+      dancerName: lowestScorer.name,
+      chooserName: lowestScorer.opponentName,
+      score: lowestScorer.score,
+    }] : [];
+  });
 
-export async function DELETE() {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  await resetLowestScorerState();
-  return NextResponse.json(await getLowestScorerState());
+  return NextResponse.json({ assignments });
 }

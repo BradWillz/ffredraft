@@ -474,9 +474,27 @@ test("Fraud Watch prose is generated in the same request, validated separately a
     assert.deepEqual(retried.fraudWatch, fraudWatch);
 
     await clearNewsletterCommentary(report);
-    const dynasty = await generateNewsletterCommentary(report, undefined, { fraudWatch: false });
+    const rankingsOnly = await generateNewsletterCommentary(report, undefined, { fraudWatch: false });
     assert.equal(JSON.parse(JSON.parse(requestBody).input).fraudWatch, undefined);
-    assert.equal(dynasty.fraudWatch, undefined);
+    assert.equal(rankingsOnly.fraudWatch, undefined);
+
+    const dynastyReport = { ...report, commentaryNamespace: "dynasty" };
+    assert.equal(await getNewsletterCommentary(dynastyReport), null);
+    await generateNewsletterCommentary(dynastyReport, undefined, { fraudWatch: false });
+    const dynastyFraudWatch = { ...fraudWatch, headline: "Dynasty fixtures flatter the record" };
+    outputText = JSON.stringify({ teams, fraudWatch: dynastyFraudWatch });
+    const requestsBeforeUpgrade = fetchMock.mock.callCount();
+    const dynasty = await generateNewsletterCommentary(dynastyReport, undefined, { fraudWatch: true });
+    assert.equal(fetchMock.mock.callCount(), requestsBeforeUpgrade + 1);
+    assert.deepEqual(JSON.parse(JSON.parse(requestBody).input).fraudWatch, facts.fraudWatch);
+    assert.deepEqual(JSON.parse(requestBody).text.format.schema.required, ["teams", "fraudWatch"]);
+    assert.deepEqual(dynasty.fraudWatch, dynastyFraudWatch);
+    assert.deepEqual(await getNewsletterCommentary(report), rankingsOnly);
+    assert.deepEqual(await generateNewsletterCommentary(dynastyReport, undefined, { fraudWatch: true }), dynasty);
+    assert.equal(fetchMock.mock.callCount(), requestsBeforeUpgrade + 1);
+    await clearNewsletterCommentary(dynastyReport);
+    assert.equal(await getNewsletterCommentary(dynastyReport), null);
+    assert.deepEqual(await getNewsletterCommentary(report), rankingsOnly);
     await clearNewsletterCommentary(report);
   } finally {
     fetchMock.mock.restore();

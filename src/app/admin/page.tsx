@@ -52,7 +52,7 @@ function CommentaryPanel({ league }: { league: NewsletterLeague }) {
 
   return (
     <form id={`newsletter-panel-${league}`} role="tabpanel" onSubmit={(event) => { event.preventDefault(); void update(); }} className="grid gap-4">
-      <p className="text-sm text-white/70">Writes the weekly commentary for the <strong className="text-white">{label}</strong> newsletter only{league === "redraft" ? " — Power Rankings and Fraud Watch together, in one request" : " — the Power Rankings blurbs"}. Saved copy is kept separate from the other league.</p>
+      <p className="text-sm text-white/70">Writes the weekly commentary for the <strong className="text-white">{label}</strong> newsletter only — Power Rankings and Fraud Watch together, in one request. Saved copy is kept separate from the other league.{league === "dynasty" && " Rookie draft positioning remains calculated from league results and traded-pick ownership."}</p>
       <label className="grid max-w-xs gap-2 text-sm font-bold text-white">
         Week
         <select value={week} disabled={busy} onChange={(event) => { setWeek(Number(event.target.value)); setStatus(""); }} className="wheel-admin-field">

@@ -68,17 +68,15 @@ async function updateCommentary(request: Request, clear: boolean) {
         await clearNewsletterCommentary(report, diagnostics);
         return respond({ week, league, url: newsletterUrl }, 200);
       }
-      const commentary = await generateNewsletterCommentary(report, diagnostics, { fraudWatch: league === "redraft" });
+      const commentary = await generateNewsletterCommentary(report, diagnostics, { fraudWatch: true });
       return respond({
         week,
         league,
         url: newsletterUrl,
         powerRankings: { ok: true, teams: commentary.teams.length },
-        ...(league === "redraft" ? {
-          fraudWatch: commentary.fraudWatchError
-            ? { ok: false, error: commentary.fraudWatchError, retainedPrevious: Boolean(commentary.fraudWatch) }
-            : { ok: Boolean(commentary.fraudWatch) },
-        } : {}),
+        fraudWatch: commentary.fraudWatchError
+          ? { ok: false, error: commentary.fraudWatchError, retainedPrevious: Boolean(commentary.fraudWatch) }
+          : { ok: Boolean(commentary.fraudWatch) },
       }, 200);
     } catch (error) {
       const failure = commentaryFailure(error, clear ? "clear" : "generation", clear ? "Unexpected error clearing commentary" : "Unexpected commentary generation error");
