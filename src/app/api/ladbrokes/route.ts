@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
-import { getLadbrokesContext, getLadbrokesHistory, getLadbrokesSession, getLadbrokesSubmissions, saveLadbrokesSubmissions, type LadbrokesSubmission } from "@/lib/ladbrokes";
+import { MUTE_FIRST_PICK_WEEK, MUTE_VOTES_REQUIRED, getLadbrokesContext, getLadbrokesHistory, getLadbrokesSession, getLadbrokesSubmissions, saveLadbrokesSubmissions, type LadbrokesSubmission } from "@/lib/ladbrokes";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,7 @@ export async function GET() {
     displayName: context.owners.find((owner) => owner.rosterId === submission.rosterId)?.displayName ?? `Team ${submission.rosterId}`,
     picks: submission.picks,
     tiebreakers: submission.tiebreakers,
+    mutes: submission.mutes,
   })) : null;
   return NextResponse.json({
     week: context.week,
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const context = await getLadbrokesContext();
   if (context.picksLocked) return NextResponse.json({ error: "Picks are locked for this week" }, { status: 423 });
-  const body = await request.json() as { week?: number; picks?: Record<string, number>; tiebreakers?: LadbrokesSubmission["tiebreakers"] };
+  const body = await request.json() as { week?: number; picks?: Record<string, number>; tiebreakers?: LadbrokesSubmission["tiebreakers"]; mutes?: number[] };
   if (body.week !== context.week || !body.picks) return NextResponse.json({ error: "Invalid or expired week" }, { status: 400 });
   const valid = context.matchups.length > 0 && context.matchups.every((matchup) => {
     const pick = body.picks?.[String(matchup.id)];
@@ -53,12 +54,20 @@ export async function POST(request: Request) {
   if (context.week >= 3 && !validTiebreakers) {
     return NextResponse.json({ error: "Choose different managers for highest and lowest scorer" }, { status: 400 });
   }
+  const mutes = body.mutes ?? [];
+  const validMutes = mutes.length === MUTE_VOTES_REQUIRED
+    && new Set(mutes).size === MUTE_VOTES_REQUIRED
+    && mutes.every((rosterId) => validRosterIds.has(rosterId) && rosterId !== session.rosterId);
+  if (context.week >= MUTE_FIRST_PICK_WEEK && !validMutes) {
+    return NextResponse.json({ error: `Choose ${MUTE_VOTES_REQUIRED} different managers (not yourself) as last week's top mutes` }, { status: 400 });
+  }
   const submissions = await getLadbrokesSubmissions(context.week);
   if (submissions.some((item) => item.rosterId === session.rosterId)) return NextResponse.json({ error: "Picks are already locked" }, { status: 409 });
   const submission: LadbrokesSubmission = {
     rosterId: session.rosterId,
     picks: body.picks,
     ...(context.week >= 3 && body.tiebreakers ? { tiebreakers: body.tiebreakers } : {}),
+    ...(context.week >= MUTE_FIRST_PICK_WEEK ? { mutes } : {}),
     lockedAt: new Date().toISOString(),
   };
   await saveLadbrokesSubmissions(context.week, [...submissions, submission]);

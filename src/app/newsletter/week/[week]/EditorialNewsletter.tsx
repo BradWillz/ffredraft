@@ -483,6 +483,54 @@ export default function EditorialNewsletter({ report, week, commentary, leagueHr
           </div>
         )}
 
+        {!isDynasty && week >= 5 && (
+          <>
+            <h3 className={styles.rubric}>Mute Watch <small>Voted by the league</small></h3>
+            <p className={styles.fraudStandfirst}>Voted on by your leaguemates; absolutely pathetic.</p>
+            {report.mutes.season.length === 0 ? (
+              <article className={styles.fraudClear}>
+                <h5 className={styles.fraudHeadline}>No votes yet</h5>
+                <p className={styles.fraudCopy}>Mute votes are cast on the Ladbrokes page while picking the following week. Once they are in, the Mute of the League appears here.</p>
+              </article>
+            ) : (
+              <>
+            <article className={styles.fraudLead}>
+              {avatar(report.mutes.season[0].username, 84, `${styles.avatar} ${styles.fraudAvatar}`)}
+              <div>
+                <p className={styles.kicker}>Mute of the League</p>
+                <h4 className={styles.fraudName}>{report.mutes.season[0].name}</h4>
+                <dl className={styles.fraudStats}>
+                  <div className={styles.fraudLuck}><dt>Season votes</dt><dd>{report.mutes.season[0].votes}</dd></div>
+                  {report.mutes.weekly[0] && <div><dt>Week {week} mute</dt><dd>{report.mutes.weekly[0].name}</dd></div>}
+                </dl>
+              </div>
+            </article>
+            {([
+              { title: `Week ${week} · ${report.mutes.voters} ${report.mutes.voters === 1 ? "vote" : "votes"} in`, entries: report.mutes.weekly },
+              { title: "Season mute ranking", entries: report.mutes.season },
+            ]).map((chart) => (
+              <div key={chart.title} style={{ marginTop: 28 }}>
+                <h5>{chart.title}</h5>
+                <ul style={{ listStyle: "none", margin: "14px 0 0", padding: "0 0 4px", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 14, borderBottom: "2px solid rgba(255,255,255,0.18)" }}>
+                  {chart.entries.slice(0, 8).map((entry, index) => {
+                    const colour = ["#ffd23f", "#ff7a1a", "#ff3d5a", "#c13cff", "#3d8bff", "#19d3a2", "#9bf03a", "#ff6fb5"][index % 8];
+                    const height = Math.max(28, Math.round((entry.votes / chart.entries[0].votes) * 120));
+                    return (
+                      <li key={entry.rosterId} style={{ flex: "0 0 60px", width: 60, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                        <span style={{ display: "block", width: 44, height: 44, borderRadius: "50%", overflow: "hidden", border: `2px solid ${colour}`, boxShadow: `0 0 12px ${colour}77`, marginBottom: 6, background: "#101a14" }}>{avatar(entry.username, 40)}</span>
+                        <strong style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</strong>
+                        <div style={{ width: "100%", height, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 8, borderRadius: "4px 4px 0 0", background: `linear-gradient(180deg, ${colour}, ${colour}99)`, boxShadow: `0 0 14px ${colour}44`, color: "#fff", fontSize: 20, fontWeight: 800, lineHeight: 1, textShadow: "0 2px 4px rgba(0,0,0,.55)" }}>{entry.votes}</div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+              </>
+            )}
+          </>
+        )}
+
         {week >= 3 && (
           <>
             <h3 className={styles.rubric}>The playoff race</h3>

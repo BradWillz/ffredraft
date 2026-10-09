@@ -1,5 +1,5 @@
 import { DYNASTRY_LEAGUE_ID, SLEEPER_LEAGUE_ID } from "./config";
-import { scoreLadbrokesWeek, getLadbrokesSubmissions } from "./ladbrokes";
+import { scoreLadbrokesWeek, getLadbrokesSubmissions, getMuteTally } from "./ladbrokes";
 import { getDisplayName, normalizeUsername } from "./normalize-username";
 import { getPowerState } from "./power";
 import { calculateWheelWinner } from "./wheel-winner";
@@ -132,6 +132,11 @@ export type WeeklyReport = {
   ladbrokes: {
     winners: Array<{ displayName: string; correct: number }>;
     total: number;
+  };
+  mutes: {
+    voters: number;
+    weekly: ReportMuteEntry[];
+    season: ReportMuteEntry[];
   };
   lastManStanding: {
     contenders: Array<{ rosterId: number; name: string; username: string }>;
@@ -272,6 +277,8 @@ function seasonPowerIndexes(weeklyMatchups: SleeperMatchup[][]) {
     ),
   })).sort((left, right) => right.powerIndex - left.powerIndex);
 }
+
+export type ReportMuteEntry = { rosterId: number; name: string; username: string; votes: number };
 
 export type ReportLeague = {
   leagueId: string;
@@ -509,6 +516,11 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
   const publishedLadbrokes = sideGames && submissions.length === 0 ? await getPublishedLadbrokesWeek(week) : null;
   const ladbrokesWinners = publishedLadbrokes?.winners ?? ladbrokes.winners;
   const ladbrokesTotal = publishedLadbrokes?.standings[0]?.total ?? ladbrokes.standings[0]?.total ?? reportMatchups.length;
+  const muteTally = sideGames && week >= 5 ? await getMuteTally(week) : { weekly: [], season: [], voters: 0 };
+  const withIdentity = (entries: Array<{ rosterId: number; votes: number }>) => entries.flatMap((entry) => {
+    const identity = rosterNames.get(entry.rosterId);
+    return identity ? [{ rosterId: entry.rosterId, name: identity.name, username: identity.username, votes: entry.votes }] : [];
+  });
   const eliminatedRosterIds = new Set<number>();
   const completedLmsWeeks = sideGames ? Math.min(week, 12, Number(league.settings?.last_scored_leg ?? 0)) : 0;
   const eliminated = weeklyMatchups.slice(0, completedLmsWeeks).flatMap((weekMatchups, index) => {
@@ -685,6 +697,7 @@ export async function getWeeklyReport(week: number, reportLeague: ReportLeague =
       winners: ladbrokesWinners.map((winner) => ({ displayName: winner.displayName, correct: winner.correct })),
       total: ladbrokesTotal,
     },
+    mutes: { voters: muteTally.voters, weekly: withIdentity(muteTally.weekly), season: withIdentity(muteTally.season) },
     lastManStanding: {
       contenders,
       eliminated,

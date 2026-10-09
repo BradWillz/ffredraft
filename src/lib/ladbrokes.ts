@@ -29,6 +29,7 @@ export type LadbrokesSubmission = {
     highestScorerRosterId: number;
     lowestScorerRosterId: number;
   };
+  mutes?: number[];
   lockedAt: string;
 };
 
@@ -147,6 +148,37 @@ export async function getLadbrokesSubmissions(week: number) {
 
 export async function saveLadbrokesSubmissions(week: number, submissions: LadbrokesSubmission[]) {
   await sharedSet(submissionsKey(week), submissions);
+}
+
+export const MUTE_VOTES_REQUIRED = 3;
+export const MUTE_FIRST_PICK_WEEK = 6;
+
+export type MuteTally = {
+  week: number;
+  weekly: Array<{ rosterId: number; votes: number }>;
+  season: Array<{ rosterId: number; votes: number }>;
+  voters: number;
+};
+
+// Votes cast while picking week N+1 are about week N, so they are credited to week N.
+export async function getMuteTally(throughWeek: number): Promise<MuteTally> {
+  const weeks = Array.from({ length: Math.max(0, throughWeek - MUTE_FIRST_PICK_WEEK + 2) }, (_, index) => index + MUTE_FIRST_PICK_WEEK - 1);
+  const perWeek = await Promise.all(weeks.map(async (week) => ({ week, submissions: await getLadbrokesSubmissions(week + 1) })));
+  const season = new Map<number, number>();
+  const weekly = new Map<number, number>();
+  let voters = 0;
+  for (const { week, submissions } of perWeek) {
+    for (const submission of submissions) {
+      if (!submission.mutes?.length) continue;
+      if (week === throughWeek) voters += 1;
+      for (const rosterId of submission.mutes) {
+        season.set(rosterId, (season.get(rosterId) ?? 0) + 1);
+        if (week === throughWeek) weekly.set(rosterId, (weekly.get(rosterId) ?? 0) + 1);
+      }
+    }
+  }
+  const toList = (map: Map<number, number>) => Array.from(map, ([rosterId, votes]) => ({ rosterId, votes })).sort((a, b) => b.votes - a.votes || a.rosterId - b.rosterId);
+  return { week: throughWeek, weekly: toList(weekly), season: toList(season), voters };
 }
 
 function buildMatchups(rawMatchups: SleeperMatchup[], owners: LadbrokesOwner[]) {

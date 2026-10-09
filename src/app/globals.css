@@ -270,3 +270,9 @@ a { text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Dark, readable native dropdowns */
+select { color-scheme: dark; }
+select option, select optgroup { color: var(--ink); background-color: var(--panel-raised); }
+select option:checked, select option:hover { color: var(--night); background-color: var(--lime); }
+select option:disabled { color: var(--muted); }

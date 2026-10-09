@@ -11,12 +11,22 @@ type Owner = {
 
 type Matchup = { id: number; team1: Owner; team2: Owner };
 type Tiebreakers = { highestScorerRosterId: number; lowestScorerRosterId: number };
-type Submission = { rosterId: number; picks: Record<string, number>; tiebreakers?: Tiebreakers; lockedAt: string };
-type RevealedPicks = { rosterId: number; displayName: string; picks: Record<string, number>; tiebreakers?: Tiebreakers };
+type Submission = { rosterId: number; picks: Record<string, number>; tiebreakers?: Tiebreakers; mutes?: number[]; lockedAt: string };
+type RevealedPicks = { rosterId: number; displayName: string; picks: Record<string, number>; tiebreakers?: Tiebreakers; mutes?: number[] };
 type LockStatus = { rosterId: number; displayName: string; locked: boolean };
 type WeeklyResult = { week: number; winners: Array<{ rosterId: number; displayName: string; correct: number; tiebreakCorrect: number }>; standings: Array<{ rosterId: number; displayName: string; correct: number; total: number; tiebreakCorrect: number }> };
 type LadbrokesState = { week: number; lastCompletedWeek: number; lockDeadline: string; picksLocked: boolean; matchups: Matchup[]; owners: Owner[]; user: Owner | null; ownSubmission: Submission | null; revealedPicks: RevealedPicks[] | null; lockStatus: LockStatus[]; history: WeeklyResult[]; isAdmin: boolean };
 type AccessOwner = Owner & { hasCode: boolean };
+
+const MUTES_REQUIRED = 3;
+const MUTES_FROM_WEEK = 6;
+
+function MuteAvatar({ username }: { username: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={`/avatars/${username.replace("@", "")}.jpg`} alt="" className="h-16 w-16 rounded-full border-2 border-white/20 object-cover sm:h-20 sm:w-20" onError={(event) => { event.currentTarget.src = "/avatars/default.jpg"; }} />
+  );
+}
 
 export default function LadbrokesClient() {
   const [activeTab, setActiveTab] = useState<"picks" | "status" | "results" | "access">("picks");
@@ -28,6 +38,7 @@ export default function LadbrokesClient() {
   const [picks, setPicks] = useState<Record<string, number>>({});
   const [highestScorerRosterId, setHighestScorerRosterId] = useState<number | null>(null);
   const [lowestScorerRosterId, setLowestScorerRosterId] = useState<number | null>(null);
+  const [mutes, setMutes] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
 
   const loadState = async () => {
@@ -37,6 +48,7 @@ export default function LadbrokesClient() {
     setPicks(next.ownSubmission?.picks ?? {});
     setHighestScorerRosterId(next.ownSubmission?.tiebreakers?.highestScorerRosterId ?? null);
     setLowestScorerRosterId(next.ownSubmission?.tiebreakers?.lowestScorerRosterId ?? null);
+    setMutes(next.ownSubmission?.mutes ?? []);
     if (next.isAdmin) {
       const accessResponse = await fetch("/api/ladbrokes/access", { cache: "no-store" });
       if (accessResponse.ok) setAccessOwners((await accessResponse.json()).owners);
@@ -62,6 +74,7 @@ export default function LadbrokesClient() {
     setPicks({});
     setHighestScorerRosterId(null);
     setLowestScorerRosterId(null);
+    setMutes([]);
     await loadState();
   };
 
@@ -72,7 +85,7 @@ export default function LadbrokesClient() {
     const tiebreakers = highestScorerRosterId != null && lowestScorerRosterId != null
       ? { highestScorerRosterId, lowestScorerRosterId }
       : undefined;
-    const response = await fetch("/api/ladbrokes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ week: state.week, picks, tiebreakers }) });
+    const response = await fetch("/api/ladbrokes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ week: state.week, picks, tiebreakers, mutes: state.week >= MUTES_FROM_WEEK ? mutes : undefined }) });
     setSaving(false);
     if (!response.ok) return setError((await response.json()).error || "Unable to lock picks.");
     await loadState();
@@ -100,7 +113,11 @@ export default function LadbrokesClient() {
     && lowestScorerRosterId != null
     && highestScorerRosterId !== lowestScorerRosterId
   );
-  const allPicked = state.matchups.length > 0 && Object.keys(picks).length === state.matchups.length && tiebreakersComplete;
+  const usesMutes = state.week >= MUTES_FROM_WEEK;
+  const mutesComplete = !usesMutes || mutes.length === MUTES_REQUIRED;
+  const mutesLocked = !!state.ownSubmission || state.picksLocked;
+  const toggleMute = (rosterId: number) => setMutes((current) => current.includes(rosterId) ? current.filter((id) => id !== rosterId) : current.length < MUTES_REQUIRED ? [...current, rosterId] : current);
+  const allPicked = state.matchups.length > 0 && Object.keys(picks).length === state.matchups.length && tiebreakersComplete && mutesComplete;
   const lockDeadline = new Date(state.lockDeadline).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
   const seasonStandings = Array.from(state.history.reduce((totals, week) => {
     for (const entry of week.standings) {
@@ -201,8 +218,37 @@ export default function LadbrokesClient() {
                 )}
               </section>
             )}
+            {usesMutes && state.matchups.length > 0 && (
+              <section className="tool-panel mt-6 p-5" aria-labelledby="ladbrokes-mutes-title">
+                <p className="eyebrow">Weekly vote</p>
+                <h3 id="ladbrokes-mutes-title" className="text-2xl font-bold uppercase text-white">Top 3 mutes of Week {state.week - 1}</h3>
+                <p className="mt-1 text-sm text-white/60">Tap the three biggest mutes. The vote is counted in the newsletter and the season ranking. You can&apos;t vote for yourself.</p>
+                <p className="mt-3 text-sm font-bold text-lime-300">{mutes.length}/{MUTES_REQUIRED} chosen</p>
+                <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                  {state.owners.filter((owner) => owner.rosterId !== state.user?.rosterId).map((owner) => {
+                    const rank = mutes.indexOf(owner.rosterId);
+                    const selected = rank >= 0;
+                    return (
+                      <button key={owner.rosterId} type="button" aria-pressed={selected} disabled={mutesLocked || (!selected && mutes.length >= MUTES_REQUIRED)} onClick={() => toggleMute(owner.rosterId)} className={`relative flex flex-col items-center gap-2 border p-3 text-center transition-colors disabled:cursor-default ${selected ? "border-lime-300 bg-lime-300/15" : "border-white/10 bg-black/20 hover:border-white/30 disabled:opacity-40"}`}>
+                        {selected && <span className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-lime-300 text-xs font-black text-black">{rank + 1}</span>}
+                        <MuteAvatar username={owner.username} />
+                        <strong className="text-sm text-white">{owner.displayName}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+                {state.ownSubmission && state.revealedPicks && (
+                  <div className="mt-5 border-t border-white/10 pt-4">
+                    <p className="mb-3 text-xs font-bold uppercase text-white/50">Locked mute votes</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {state.revealedPicks.map((entry) => <div key={entry.rosterId} className="border border-white/10 bg-black/20 p-3 text-sm"><strong className="block text-white">{entry.displayName}</strong><span className="block text-white/60">{entry.mutes?.length ? entry.mutes.map((id) => state.owners.find((owner) => owner.rosterId === id)?.displayName ?? `Team ${id}`).join(", ") : "Not selected"}</span></div>)}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
             {error && <p className="mt-4 text-center text-red-400">{error}</p>}
-            {state.ownSubmission ? <div className="mt-6 border border-lime-300/40 bg-lime-300/10 p-5 text-center"><strong className="text-lime-300">Picks locked for Week {state.week}</strong><p className="mt-1 text-sm text-white/60">Your entry is final. Other locked selections are now shown above.</p></div> : state.picksLocked ? <div className="mt-6 border border-orange-300/40 bg-orange-300/10 p-5 text-center"><strong className="text-orange-300">Week {state.week} selections are closed</strong><p className="mt-1 text-sm text-white/60">The first game has kicked off. No late entries can be submitted.</p></div> : <button type="button" onClick={lockPicks} disabled={!allPicked || saving} className="tool-command mt-6 w-full p-4 disabled:opacity-40">{saving ? "Locking..." : allPicked ? "Lock in all picks" : Object.keys(picks).length < state.matchups.length ? `Choose ${state.matchups.length - Object.keys(picks).length} more game picks` : "Choose both tiebreakers"}</button>}
+            {state.ownSubmission ? <div className="mt-6 border border-lime-300/40 bg-lime-300/10 p-5 text-center"><strong className="text-lime-300">Picks locked for Week {state.week}</strong><p className="mt-1 text-sm text-white/60">Your entry is final. Other locked selections are now shown above.</p></div> : state.picksLocked ? <div className="mt-6 border border-orange-300/40 bg-orange-300/10 p-5 text-center"><strong className="text-orange-300">Week {state.week} selections are closed</strong><p className="mt-1 text-sm text-white/60">The first game has kicked off. No late entries can be submitted.</p></div> : <button type="button" onClick={lockPicks} disabled={!allPicked || saving} className="tool-command mt-6 w-full p-4 disabled:opacity-40">{saving ? "Locking..." : allPicked ? "Lock in all picks" : Object.keys(picks).length < state.matchups.length ? `Choose ${state.matchups.length - Object.keys(picks).length} more game picks` : usesMutes && tiebreakersComplete ? `Choose ${MUTES_REQUIRED - mutes.length} more mutes` : "Choose both tiebreakers"}</button>}
           </div>
         )}
 
