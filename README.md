@@ -20,6 +20,10 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 The wheel and duck pages are public and read-only. Commissioner controls are available at `/admin` after signing in. Ladbrokes uses commissioner-generated, per-owner access codes; picks are stored privately by Sleeper week while the public lock-status board shows only who has submitted.
 
+To correct an individual's Ladbrokes entry, sign in at `/admin`, open **Manage Ladbrokes**, then **Lock Status**. Choose **Reset picks** beside that owner and confirm. This clears only their current-week picks, tiebreakers and mute votes; their existing access code, everyone else's entries and previous weeks remain unchanged. They should reload Ladbrokes and submit again before first kickoff. Resets are not allowed after the weekly deadline.
+
+Run `npm run test:ladbrokes` to test individual resets, permissions, deadline enforcement and concurrent submissions.
+
 Copy `.env.example` to `.env.local` and set `ADMIN_PASSWORD`. For shared persistent state, create an Upstash Redis integration in the Vercel Marketplace and provide `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Without Redis, development uses process-local memory that resets when the server restarts.
 
 Set the same variables in the Vercel project's Environment Variables settings before deploying. Do not commit their values.

@@ -20,6 +20,24 @@ export async function sharedSet<T>(key: string, value: T) {
   else memoryStore.set(key, value);
 }
 
+export async function sharedCompareAndSet<T>(key: string, expected: T | null, value: T) {
+  const redis = redisClient();
+  if (redis) {
+    const result = await redis.eval<string[], number>(`
+      local current = redis.call("GET", KEYS[1])
+      if (not current and ARGV[1] == "null") or current == ARGV[1] then
+        redis.call("SET", KEYS[1], ARGV[2])
+        return 1
+      end
+      return 0
+    `, [key], [JSON.stringify(expected), JSON.stringify(value)]);
+    return result === 1;
+  }
+  if (JSON.stringify(memoryStore.get(key) ?? null) !== JSON.stringify(expected)) return false;
+  memoryStore.set(key, value);
+  return true;
+}
+
 export async function sharedDelete(key: string) {
   const redis = redisClient();
   if (redis) await redis.del(key);

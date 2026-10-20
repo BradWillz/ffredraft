@@ -4,7 +4,7 @@ import { parse } from "csv-parse/sync";
 import { SLEEPER_LEAGUE_ID } from "./config";
 import { getDisplayName } from "./normalize-username";
 import { getLeague, getLeagueMatchups, getLeagueRosters, getLeagueUsers } from "./sleeper";
-import { sharedGet, sharedSet } from "./shared-store";
+import { sharedCompareAndSet, sharedGet, sharedSet } from "./shared-store";
 
 export const LADBROKES_COOKIE = "main-leagues-ladbrokes";
 const ACCESS_KEY = "redraft:2026:ladbrokes:access";
@@ -148,6 +148,30 @@ export async function getLadbrokesSubmissions(week: number) {
 
 export async function saveLadbrokesSubmissions(week: number, submissions: LadbrokesSubmission[]) {
   await sharedSet(submissionsKey(week), submissions);
+}
+
+async function updateLadbrokesSubmission(week: number, rosterId: number, submission: LadbrokesSubmission | null) {
+  const key = submissionsKey(week);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const stored = await sharedGet<LadbrokesSubmission[]>(key);
+    const submissions = stored ?? [];
+    const exists = submissions.some((item) => item.rosterId === rosterId);
+    if (submission ? exists : !exists) return false;
+    const next = submission
+      ? [...submissions, submission]
+      : submissions.filter((item) => item.rosterId !== rosterId);
+    // Retry if another owner submits or an admin resets while this entry is changing.
+    if (await sharedCompareAndSet(key, stored, next)) return true;
+  }
+  throw new Error("Ladbrokes picks changed repeatedly. Please try again.");
+}
+
+export async function addLadbrokesSubmission(week: number, submission: LadbrokesSubmission) {
+  return updateLadbrokesSubmission(week, submission.rosterId, submission);
+}
+
+export async function resetLadbrokesSubmission(week: number, rosterId: number) {
+  return updateLadbrokesSubmission(week, rosterId, null);
 }
 
 export const MUTE_VOTES_REQUIRED = 3;

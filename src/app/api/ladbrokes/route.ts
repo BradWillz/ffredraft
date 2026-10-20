@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
-import { MUTE_FIRST_PICK_WEEK, MUTE_VOTES_REQUIRED, getLadbrokesContext, getLadbrokesHistory, getLadbrokesSession, getLadbrokesSubmissions, saveLadbrokesSubmissions, type LadbrokesSubmission } from "@/lib/ladbrokes";
+import { MUTE_FIRST_PICK_WEEK, MUTE_VOTES_REQUIRED, addLadbrokesSubmission, getLadbrokesContext, getLadbrokesHistory, getLadbrokesSession, getLadbrokesSubmissions, resetLadbrokesSubmission, type LadbrokesSubmission } from "@/lib/ladbrokes";
 
 export const dynamic = "force-dynamic";
 
@@ -61,8 +61,6 @@ export async function POST(request: Request) {
   if (context.week >= MUTE_FIRST_PICK_WEEK && !validMutes) {
     return NextResponse.json({ error: `Choose ${MUTE_VOTES_REQUIRED} different managers (not yourself) as last week's top mutes` }, { status: 400 });
   }
-  const submissions = await getLadbrokesSubmissions(context.week);
-  if (submissions.some((item) => item.rosterId === session.rosterId)) return NextResponse.json({ error: "Picks are already locked" }, { status: 409 });
   const submission: LadbrokesSubmission = {
     rosterId: session.rosterId,
     picks: body.picks,
@@ -70,7 +68,29 @@ export async function POST(request: Request) {
     ...(context.week >= MUTE_FIRST_PICK_WEEK ? { mutes } : {}),
     lockedAt: new Date().toISOString(),
   };
-  await saveLadbrokesSubmissions(context.week, [...submissions, submission]);
+  if (!await addLadbrokesSubmission(context.week, submission)) return NextResponse.json({ error: "Picks are already locked" }, { status: 409 });
   return NextResponse.json({ locked: true, ownSubmission: submission });
 }
 
+export async function DELETE(request: Request) {
+  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  if (!body || typeof body !== "object" || !("week" in body) || !("rosterId" in body)
+    || !Number.isInteger(body.week) || !Number.isInteger(body.rosterId)) {
+    return NextResponse.json({ error: "A valid week and roster are required" }, { status: 400 });
+  }
+  const context = await getLadbrokesContext();
+  if (body.week !== context.week) return NextResponse.json({ error: "Invalid or expired week" }, { status: 400 });
+  if (context.picksLocked) return NextResponse.json({ error: "Picks cannot be reset after first kickoff" }, { status: 423 });
+  const owner = context.owners.find((item) => item.rosterId === body.rosterId);
+  if (!owner) return NextResponse.json({ error: "Roster not found" }, { status: 404 });
+  if (!await resetLadbrokesSubmission(context.week, owner.rosterId)) {
+    return NextResponse.json({ error: "This owner has no locked picks to reset" }, { status: 409 });
+  }
+  return NextResponse.json({ reset: true, week: context.week, rosterId: owner.rosterId });
+}

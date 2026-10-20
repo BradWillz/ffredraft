@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:ladbrokes": "tsx --test src/lib/ladbrokes.test.ts",
     "test:newsletter": "tsx --test src/lib/weekly-report-analysis.test.ts",
     "test:trades": "tsx --test src/lib/trade-grading.test.ts"
   },

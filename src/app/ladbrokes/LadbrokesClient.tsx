@@ -40,9 +40,13 @@ export default function LadbrokesClient() {
   const [lowestScorerRosterId, setLowestScorerRosterId] = useState<number | null>(null);
   const [mutes, setMutes] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
+  const [resettingRosterId, setResettingRosterId] = useState<number | null>(null);
+  const [resetError, setResetError] = useState("");
+  const [resetStatus, setResetStatus] = useState("");
 
   const loadState = async () => {
     const response = await fetch("/api/ladbrokes", { cache: "no-store" });
+    if (!response.ok) throw new Error("Unable to refresh Ladbrokes picks. Please reload the page.");
     const next = await response.json() as LadbrokesState;
     setState(next);
     setPicks(next.ownSubmission?.picks ?? {});
@@ -56,8 +60,6 @@ export default function LadbrokesClient() {
   };
 
   useEffect(() => {
-    // loadState waits for the API response before updating client state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadState();
   }, []);
 
@@ -104,6 +106,32 @@ export default function LadbrokesClient() {
     await fetch("/api/ladbrokes/access", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rosterId }) });
     setNewCodes((current) => { const next = { ...current }; delete next[rosterId]; return next; });
     await loadState();
+  };
+
+  const resetPicks = async (owner: LockStatus) => {
+    if (!state || resettingRosterId !== null) return;
+    if (!confirm(`Reset ${owner.displayName}'s Week ${state.week} picks, tiebreakers and mute votes? Only their entry will be cleared. They must pick again before first kickoff.`)) return;
+    setResettingRosterId(owner.rosterId);
+    setResetError("");
+    setResetStatus("");
+    try {
+      const response = await fetch("/api/ladbrokes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ week: state.week, rosterId: owner.rosterId }),
+      });
+      if (!response.ok) {
+        const result = await response.json() as { error?: string };
+        setResetError(result.error ?? "Unable to reset picks.");
+        return;
+      }
+      setResetStatus(`${owner.displayName}'s Week ${state.week} entry was reset. They can sign in with their existing code and pick again before first kickoff.`);
+      await loadState();
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : "Unable to reset or refresh picks. Please reload and check their lock status.");
+    } finally {
+      setResettingRosterId(null);
+    }
   };
 
   if (!state) return <div className="p-8 text-center text-white/60">Loading the Week&apos;s book...</div>;
@@ -253,7 +281,29 @@ export default function LadbrokesClient() {
         )}
 
         {activeTab === "status" && (
-          <div><div className="mb-6"><p className="eyebrow">Week {state.week}</p><h2 className="text-3xl font-bold uppercase text-white">Who&apos;s locked in?</h2><p className="mt-2 text-white/60">Completion is public. Selections unlock only after you submit your own.</p></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{state.lockStatus.map((owner) => <div key={owner.rosterId} className="tool-panel flex items-center justify-between gap-3 p-4"><strong className="text-white">{owner.displayName}</strong><span className={owner.locked ? "text-lime-300" : "text-white/40"}>{owner.locked ? "Locked in" : "Not submitted"}</span></div>)}</div></div>
+          <div>
+            <div className="mb-6">
+              <p className="eyebrow">Week {state.week}</p>
+              <h2 className="text-3xl font-bold uppercase text-white">Who&apos;s locked in?</h2>
+              <p className="mt-2 text-white/60">Completion is public. Selections unlock only after you submit your own.</p>
+              {state.isAdmin && <p className="mt-2 text-sm text-white/60">{state.picksLocked ? "First kickoff has passed. Picks can no longer be reset." : "Commissioner: reset one owner's current-week entry to let them pick again before first kickoff. Everyone else's picks and all access codes stay unchanged."}</p>}
+            </div>
+            {state.isAdmin && resetError && <p role="alert" className="mb-4 text-red-400">{resetError}</p>}
+            {state.isAdmin && resetStatus && <p role="status" className="mb-4 text-lime-300">{resetStatus}</p>}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {state.lockStatus.map((owner) => (
+                <div key={owner.rosterId} className="tool-panel flex flex-wrap items-center justify-between gap-3 p-4">
+                  <strong className="text-white">{owner.displayName}</strong>
+                  <span className={owner.locked ? "text-lime-300" : "text-white/40"}>{owner.locked ? "Locked in" : "Not submitted"}</span>
+                  {state.isAdmin && owner.locked && (
+                    <button type="button" onClick={() => void resetPicks(owner)} disabled={state.picksLocked || resettingRosterId !== null} aria-label={`Reset ${owner.displayName}'s picks`} className="tool-command tool-command--danger px-3 py-2 disabled:cursor-not-allowed disabled:opacity-40">
+                      {resettingRosterId === owner.rosterId ? "Resetting..." : "Reset picks"}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {activeTab === "results" && (
