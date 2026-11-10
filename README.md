@@ -39,6 +39,16 @@ The dynasty trade history grades every trade A–F for each manager, using the p
 
 Values are fetched in batches, kept in memory, and the full grade set is cached for six hours in the shared store (`dynastry:trade-grades:v2`). Run `npm run test:trades` to test the grading.
 
+## Redraft record book
+
+Open **The Record Book** from the Redraft headquarters (`/the-redraft/records`) for eight scoring records and the longest winning and losing streaks. Each record includes the top five entries (including ties at the cutoff), the site's local manager avatars, season/week, and expandable historical starting lineups for scoring entries.
+
+Scoring records include finalized head-to-head weeks from the linked Sleeper league history, including the current season, playoffs and consolation games; multi-week playoff matchups count as separate weekly scores. For an active season, the cutoff is the lesser of the league's `last_scored_leg` and the last finished week from Sleeper's NFL state, rather than the potentially lagging league `leg`. Byes, unpaired teams, missing scores and in-progress weeks are excluded. Actual zeros and commissioner score overrides count. Missing player scores are shown as N/A, not zero. Historical team names reflect the current metadata for that season, not guaranteed weekly snapshots.
+
+Streaks use regular-season games only and carry across consecutive seasons for the same normalized manager identity, not roster ID. Ties break streaks; leaving the league breaks continuity. Playoff and consolation results are ignored. Results are cached for an hour; failed loads show an explicit error rather than partial records.
+
+Run `npm run test:records` for completion boundaries, historical identities, scoring, ties, lineup details and streak rules.
+
 ## Weekly newsletter
 
 Dynastry of Darkness uses the shared editorial layout with its own league branding, results, weekly highlights, Power Rankings, standings, playoff chances and Fraud Watch. Its rookie draft positioning retains Max PF ordering, projected playoff seeds and traded-pick ownership for every round. Redraft-only side games and the FAAB market are not included in the dynasty edition.

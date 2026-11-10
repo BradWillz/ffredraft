@@ -45,6 +45,12 @@ export default function TheRedraftPage() {
       label: "Champions",
     },
     {
+      title: "The Record Book",
+      description: "All-time highs, historic stinkers, streaks and lineup receipts",
+      href: "/the-redraft/records",
+      label: "Fame & shame",
+    },
+    {
       title: "Draft Analysis",
       description: "Draft board and performance analysis",
       href: "/the-redraft/draft-analysis",
